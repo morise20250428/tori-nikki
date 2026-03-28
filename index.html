@@ -502,7 +502,8 @@ function getEaten() {
 // ===== Save button =====
 function updateSaveBtn() {
   document.getElementById('save-btn').disabled =
-    !(state.weight !== null || getEaten() !== null || state.todayPhoto !== null || state.comment);
+    !(state.weight !== null || state.foodBefore !== null || state.foodAfter !== null ||
+      state.todayPhoto !== null || state.comment);
 }
 
 // ===== Save =====
