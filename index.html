@@ -515,9 +515,16 @@ async function runOcr(processedDataUrl) {
     const matches = text.match(/\d+\.?\d*/g);
     if (!matches || matches.length === 0) return null;
     const best = matches.reduce((a, b) => b.replace('.','').length > a.replace('.','').length ? b : a);
-    const num = parseFloat(best);
-    if (isNaN(num) || num <= 0 || num > 9999) return null;
-    return Math.round(num * 10) / 10;
+    let num = parseFloat(best);
+    if (isNaN(num) || num <= 0) return null;
+    // LED scale: decimal point (or colon) often lost in binarization
+    // e.g. "2358" should be 23.58, "1419" should be 14.19
+    if (num > 100 && num < 10000 && !best.includes('.') && best.length >= 3) {
+      const candidate = parseFloat(best.slice(0, -2) + '.' + best.slice(-2));
+      if (candidate > 0 && candidate <= 200) num = candidate;
+    }
+    if (num <= 0 || num > 500) return null;
+    return Math.round(num * 100) / 100;
   } catch (e) {
     return null;
   }
@@ -571,7 +578,11 @@ function getEaten() {
 
 function updateSaveBtn() {
   const btn = document.getElementById('save-btn');
-  btn.disabled = !(state.weight.value !== null || getEaten() !== null || state.todayPhoto);
+  btn.disabled = !(
+    state.weight.value !== null || state.weight.dataUrl !== null ||
+    state.foodBefore.dataUrl !== null || state.foodAfter.dataUrl !== null ||
+    getEaten() !== null || state.todayPhoto !== null
+  );
 }
 
 // ===== Save =====
@@ -595,14 +606,15 @@ function saveRecord() {
   saveRecords(records);
   showToast('保存しました！');
   checkTodaySaved();
-  // Reset
+  // Restore state from saved record so form stays functional for overwrites
+  const saved = records[key];
   state = {
-    weight: { value: null, dataUrl: null },
-    foodBefore: { value: null, dataUrl: null },
-    foodAfter: { value: null, dataUrl: null },
-    todayPhoto: null,
+    weight: { value: saved.weight, dataUrl: saved.photos.weight },
+    foodBefore: { value: saved.foodBefore, dataUrl: saved.photos.foodBefore },
+    foodAfter: { value: saved.foodAfter, dataUrl: saved.photos.foodAfter },
+    todayPhoto: saved.todayPhoto,
   };
-  document.getElementById('save-btn').disabled = true;
+  updateSaveBtn();
 }
 
 // ===== Album (今日の一枚のみ) =====
