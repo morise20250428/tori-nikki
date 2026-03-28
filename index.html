@@ -6,7 +6,6 @@
 <title>とりにっき</title>
 <link rel="apple-touch-icon" href="名称未設定のデザイン.png">
 <link rel="manifest" href="manifest.json">
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,98 +30,54 @@
   .page { display: none; padding: 0 16px 16px; }
   .page.active { display: block; }
 
-  .header { padding: 20px 0 12px; display: flex; align-items: center; justify-content: space-between; }
+  .header { padding: 20px 0 8px; }
   .header h1 { font-size: 22px; font-weight: 700; }
-  .header .date { font-size: 13px; color: var(--sub); }
+  .header .date { font-size: 13px; color: var(--sub); margin-top: 2px; }
 
   .section-title { font-size: 13px; font-weight: 600; color: var(--sub); letter-spacing: .5px; margin: 16px 0 10px; }
   .card { background: var(--card); border-radius: 16px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.05); margin-bottom: 12px; }
 
-  /* Photo capture - label approach for reliable iOS support */
-  .photo-label {
-    display: block;
-    background: var(--bg);
-    border: 2px dashed var(--border);
-    border-radius: 12px;
-    aspect-ratio: 1;
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-    transition: border-color .2s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .photo-label:active { border-color: var(--accent); }
-  .photo-label img.preview {
-    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 10px;
-  }
-  .photo-label .ph-inner {
-    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--sub);
-  }
-  .photo-label.has-photo .ph-inner {
-    background: none;
-    justify-content: flex-end;
-    padding-bottom: 6px;
-  }
-  .photo-label.has-photo .ph-inner svg { display: none; }
-  .photo-label.has-photo .ph-inner span {
-    background: rgba(0,0,0,.38);
-    color: #fff;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 10px;
-    backdrop-filter: blur(2px);
-  }
-  .photo-label input[type=file] { display: none; }
+  /* Bird tabs */
+  .bird-tabs { display: flex; gap: 8px; margin: 8px 0 14px; }
+  .bird-tab { flex: 1; padding: 10px 6px; border: 2px solid var(--border); background: var(--card); border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; color: var(--sub); transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .bird-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .edit-btn { font-size: 13px; background: none; border: none; cursor: pointer; padding: 2px 4px; opacity: .65; color: inherit; }
 
   /* Wide photo (today's one shot) */
   .photo-label-wide {
-    display: block;
-    background: var(--bg);
-    border: 2px dashed var(--border);
-    border-radius: 12px;
-    width: 100%;
-    aspect-ratio: 4/3;
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-    transition: border-color .2s;
-    -webkit-tap-highlight-color: transparent;
+    display: block; background: var(--bg); border: 2px dashed var(--border);
+    border-radius: 12px; width: 100%; aspect-ratio: 4/3;
+    position: relative; overflow: hidden; cursor: pointer;
+    transition: border-color .2s; -webkit-tap-highlight-color: transparent;
   }
   .photo-label-wide:active { border-color: var(--accent); }
   .photo-label-wide img.preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
   .photo-label-wide .ph-inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--sub); }
-  .photo-label-wide.has-photo .ph-inner {
-    background: none;
-    justify-content: flex-end;
-    padding-bottom: 10px;
-  }
+  .photo-label-wide.has-photo .ph-inner { background: none; justify-content: flex-end; padding-bottom: 10px; }
   .photo-label-wide.has-photo .ph-inner svg { display: none; }
   .photo-label-wide.has-photo .ph-inner span {
-    background: rgba(0,0,0,.38);
-    color: #fff;
-    padding: 3px 12px;
-    border-radius: 12px;
-    font-size: 11px;
-    backdrop-filter: blur(2px);
+    background: rgba(0,0,0,.38); color: #fff; padding: 3px 12px;
+    border-radius: 12px; font-size: 11px; backdrop-filter: blur(2px);
   }
   .photo-label-wide input[type=file] { display: none; }
 
-  .capture-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-
-  /* OCR result - always shows editable input */
-  .ocr-box { background: var(--bg); border-radius: 10px; padding: 10px 14px; margin-top: 8px; }
-  .ocr-box .ocr-label { font-size: 11px; color: var(--sub); margin-bottom: 6px; }
-  .ocr-box .ocr-input-row { display: flex; align-items: center; gap: 6px; }
-  .ocr-box input.num-input {
-    font-size: 28px; font-weight: 700; border: none; background: none;
-    width: 100px; outline: none; color: var(--text); border-bottom: 2px solid var(--border);
-    padding: 2px 0;
+  /* Big number input */
+  .num-row { display: flex; align-items: baseline; gap: 8px; padding: 8px 0 4px; }
+  .big-input {
+    font-size: 44px; font-weight: 700; border: none; background: none;
+    width: 150px; outline: none; color: var(--text);
+    border-bottom: 3px solid var(--border); padding: 2px 0;
+    -webkit-appearance: none; appearance: none;
   }
-  .ocr-box input.num-input:focus { border-bottom-color: var(--accent); }
-  .ocr-box .unit { font-size: 14px; color: var(--sub); }
-  .ocr-box .ocr-status { font-size: 11px; color: var(--sub); margin-top: 4px; min-height: 16px; }
+  .big-input:focus { border-bottom-color: var(--accent); }
+  .big-unit { font-size: 16px; color: var(--sub); font-weight: 500; }
 
-  .calc-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: linear-gradient(135deg, #e8f8f3, #d4f0e8); border-radius: 12px; margin-top: 10px; }
+  /* Food 2-col */
+  .food-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .food-col .food-label { font-size: 12px; color: var(--sub); margin-bottom: 2px; }
+  .food-col .big-input { font-size: 36px; width: 110px; }
+
+  .calc-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: linear-gradient(135deg, #e8f8f3, #d4f0e8); border-radius: 12px; margin-top: 14px; }
   .calc-row .label { font-size: 13px; color: var(--text); }
   .calc-row .value { font-size: 24px; font-weight: 700; color: var(--accent2); }
 
@@ -138,9 +93,6 @@
 
   .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-60px); background: #3a2f2f; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; z-index: 999; transition: transform .3s ease; white-space: nowrap; }
   .toast.show { transform: translateX(-50%) translateY(0); }
-
-  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 4px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* Album */
   .month-group { margin-bottom: 24px; }
@@ -181,10 +133,20 @@
   <!-- TODAY PAGE -->
   <div id="page-today" class="page active">
     <div class="header">
-      <div>
-        <h1>とりにっき</h1>
-        <div class="date" id="today-date"></div>
-      </div>
+      <h1>とりにっき</h1>
+      <div class="date" id="today-date"></div>
+    </div>
+
+    <!-- Bird tabs -->
+    <div class="bird-tabs">
+      <button class="bird-tab active" id="tab-bird-0" onclick="switchBird(0)">
+        <span id="name-bird-0">文鳥1</span>
+        <button class="edit-btn" onclick="event.stopPropagation(); renameBird(0)" title="名前を変更">✏</button>
+      </button>
+      <button class="bird-tab" id="tab-bird-1" onclick="switchBird(1)">
+        <span id="name-bird-1">文鳥2</span>
+        <button class="edit-btn" onclick="event.stopPropagation(); renameBird(1)" title="名前を変更">✏</button>
+      </button>
     </div>
 
     <!-- Today saved summary -->
@@ -219,69 +181,31 @@
       </label>
     </div>
 
-    <!-- Weight section -->
+    <!-- Weight -->
     <div class="card">
-      <div class="section-title" style="margin-top:0;">体重の記録</div>
-      <div class="capture-row">
-        <label class="photo-label" id="weight-btn" for="weight-input">
-          <img class="preview" id="weight-preview" src="" style="display:none;">
-          <div class="ph-inner" id="weight-inner">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
-            <span>体重計の写真</span>
-          </div>
-          <input type="file" accept="image/*" id="weight-input" onchange="handleScalePhoto('weight', this)">
-        </label>
-        <div style="display:flex; flex-direction:column; justify-content:center;">
-          <div class="ocr-box" id="weight-ocr-box">
-            <div class="ocr-label">体重</div>
-            <div class="ocr-input-row">
-              <input class="num-input" type="number" step="0.1" placeholder="—" id="weight-val" oninput="onNumInput('weight', this.value)">
-              <span class="unit">g</span>
-            </div>
-            <div class="ocr-status" id="weight-status">写真を撮ると自動入力</div>
-          </div>
-        </div>
+      <div class="section-title" style="margin-top:0;">体重</div>
+      <div class="num-row">
+        <input class="big-input" type="number" step="0.1" inputmode="decimal" placeholder="—" id="weight-val" oninput="onNumInput('weight', this.value)">
+        <span class="big-unit">g</span>
       </div>
     </div>
 
-    <!-- Food section -->
+    <!-- Food -->
     <div class="card">
       <div class="section-title" style="margin-top:0;">餌の記録</div>
-      <div class="capture-row">
-        <div>
-          <label class="photo-label" id="food-before-btn" for="food-before-input">
-            <img class="preview" id="food-before-preview" src="" style="display:none;">
-            <div class="ph-inner" id="food-before-inner">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
-              <span>与える前</span>
-            </div>
-            <input type="file" accept="image/*" id="food-before-input" onchange="handleScalePhoto('food-before', this)">
-          </label>
-          <div class="ocr-box" style="margin-top:8px;">
-            <div class="ocr-label">与えた量</div>
-            <div class="ocr-input-row">
-              <input class="num-input" type="number" step="0.1" placeholder="—" id="food-before-val" oninput="onNumInput('food-before', this.value)">
-              <span class="unit">g</span>
-            </div>
-            <div class="ocr-status" id="food-before-status">写真を撮ると自動入力</div>
+      <div class="food-grid">
+        <div class="food-col">
+          <div class="food-label">与えた量</div>
+          <div class="num-row">
+            <input class="big-input" type="number" step="0.1" inputmode="decimal" placeholder="—" id="food-before-val" oninput="onNumInput('food-before', this.value)">
+            <span class="big-unit">g</span>
           </div>
         </div>
-        <div>
-          <label class="photo-label" id="food-after-btn" for="food-after-input">
-            <img class="preview" id="food-after-preview" src="" style="display:none;">
-            <div class="ph-inner" id="food-after-inner">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
-              <span>食べた後</span>
-            </div>
-            <input type="file" accept="image/*" id="food-after-input" onchange="handleScalePhoto('food-after', this)">
-          </label>
-          <div class="ocr-box" style="margin-top:8px;">
-            <div class="ocr-label">残った量</div>
-            <div class="ocr-input-row">
-              <input class="num-input" type="number" step="0.1" placeholder="—" id="food-after-val" oninput="onNumInput('food-after', this.value)">
-              <span class="unit">g</span>
-            </div>
-            <div class="ocr-status" id="food-after-status">写真を撮ると自動入力</div>
+        <div class="food-col">
+          <div class="food-label">残った量</div>
+          <div class="num-row">
+            <input class="big-input" type="number" step="0.1" inputmode="decimal" placeholder="—" id="food-after-val" oninput="onNumInput('food-after', this.value)">
+            <span class="big-unit">g</span>
           </div>
         </div>
       </div>
@@ -297,12 +221,20 @@
   <!-- ALBUM PAGE -->
   <div id="page-album" class="page">
     <div class="header"><h1>アルバム</h1></div>
+    <div class="bird-tabs">
+      <button class="bird-tab active" id="album-tab-0" onclick="switchAlbumBird(0)"><span id="album-name-0">文鳥1</span></button>
+      <button class="bird-tab" id="album-tab-1" onclick="switchAlbumBird(1)"><span id="album-name-1">文鳥2</span></button>
+    </div>
     <div id="album-content"></div>
   </div>
 
   <!-- GRAPH PAGE -->
   <div id="page-graph" class="page">
     <div class="header"><h1>グラフ</h1></div>
+    <div class="bird-tabs">
+      <button class="bird-tab active" id="graph-tab-0" onclick="switchGraphBird(0)"><span id="graph-name-0">文鳥1</span></button>
+      <button class="bird-tab" id="graph-tab-1" onclick="switchGraphBird(1)"><span id="graph-name-1">文鳥2</span></button>
+    </div>
     <div class="range-btns">
       <button class="active" onclick="setRange(7, this)">7日間</button>
       <button onclick="setRange(14, this)">2週間</button>
@@ -321,6 +253,10 @@
   <!-- RECORDS PAGE -->
   <div id="page-records" class="page">
     <div class="header"><h1>記録一覧</h1></div>
+    <div class="bird-tabs">
+      <button class="bird-tab active" id="rec-tab-0" onclick="switchRecBird(0)"><span id="rec-name-0">文鳥1</span></button>
+      <button class="bird-tab" id="rec-tab-1" onclick="switchRecBird(1)"><span id="rec-name-1">文鳥2</span></button>
+    </div>
     <div id="records-list"></div>
   </div>
 </main>
@@ -357,17 +293,58 @@
 
 <script>
 // ===== State =====
-let state = {
-  weight: { value: null, dataUrl: null },
-  foodBefore: { value: null, dataUrl: null },
-  foodAfter: { value: null, dataUrl: null },
-  todayPhoto: null,
-};
+let activeBird = 0;
+let albumBird = 0;
+let graphBird = 0;
+let recBird = 0;
+let state = { weight: null, foodBefore: null, foodAfter: null, todayPhoto: null };
 let chartRange = 7;
 let weightChart = null, foodChart = null;
 
+// ===== Bird names =====
+function getBirdNames() {
+  try { return JSON.parse(localStorage.getItem('tori_bird_names') || '["文鳥1","文鳥2"]'); } catch { return ['文鳥1', '文鳥2']; }
+}
+function saveBirdNames(names) { localStorage.setItem('tori_bird_names', JSON.stringify(names)); }
+
+function updateBirdNameUI() {
+  const names = getBirdNames();
+  [0, 1].forEach(i => {
+    [['name-bird-', 'tab-bird-'], ['album-name-', 'album-tab-'], ['graph-name-', 'graph-tab-'], ['rec-name-', 'rec-tab-']].forEach(([nameId, tabId]) => {
+      const el = document.getElementById(nameId + i);
+      if (el) el.textContent = names[i];
+    });
+  });
+}
+
+function renameBird(idx) {
+  const names = getBirdNames();
+  const newName = prompt((idx === 0 ? '1羽目' : '2羽目') + 'の名前を入力してください', names[idx]);
+  if (newName && newName.trim()) {
+    names[idx] = newName.trim();
+    saveBirdNames(names);
+    updateBirdNameUI();
+  }
+}
+
+// ===== Storage (per bird) =====
+function getRecords(birdIdx) {
+  const idx = birdIdx !== undefined ? birdIdx : activeBird;
+  try { return JSON.parse(localStorage.getItem('tori_records_' + idx) || '{}'); } catch { return {}; }
+}
+function saveRecords(records, birdIdx) {
+  const idx = birdIdx !== undefined ? birdIdx : activeBird;
+  localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
+}
+
+// ===== Init =====
 document.addEventListener('DOMContentLoaded', () => {
+  // Migrate old data → bird 0
+  if (localStorage.getItem('tori_records') && !localStorage.getItem('tori_records_0')) {
+    localStorage.setItem('tori_records_0', localStorage.getItem('tori_records'));
+  }
   updateDateHeader();
+  updateBirdNameUI();
   checkTodaySaved();
 });
 
@@ -382,6 +359,53 @@ function todayKey() {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
+// ===== Bird switching =====
+function switchBird(idx) {
+  activeBird = idx;
+  [0, 1].forEach(i => document.getElementById('tab-bird-' + i).classList.toggle('active', i === idx));
+  state = { weight: null, foodBefore: null, foodAfter: null, todayPhoto: null };
+  document.getElementById('weight-val').value = '';
+  document.getElementById('food-before-val').value = '';
+  document.getElementById('food-after-val').value = '';
+  document.getElementById('food-calc').style.display = 'none';
+  const sp = document.getElementById('shot-preview');
+  sp.src = ''; sp.style.display = 'none';
+  document.getElementById('shot-btn').classList.remove('has-photo');
+  document.getElementById('shot-inner').querySelector('span').textContent = '文鳥の写真を撮る';
+  updateSaveBtn();
+  checkTodaySaved();
+}
+
+function switchAlbumBird(idx) {
+  albumBird = idx;
+  [0, 1].forEach(i => document.getElementById('album-tab-' + i).classList.toggle('active', i === idx));
+  renderAlbum();
+}
+
+function switchGraphBird(idx) {
+  graphBird = idx;
+  [0, 1].forEach(i => document.getElementById('graph-tab-' + i).classList.toggle('active', i === idx));
+  renderGraphs();
+}
+
+function switchRecBird(idx) {
+  recBird = idx;
+  [0, 1].forEach(i => document.getElementById('rec-tab-' + i).classList.toggle('active', i === idx));
+  renderRecords();
+}
+
+// ===== Page switching =====
+function switchPage(page, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  btn.classList.add('active');
+  if (page === 'album') renderAlbum();
+  if (page === 'graph') renderGraphs();
+  if (page === 'records') renderRecords();
+}
+
+// ===== Today summary =====
 function checkTodaySaved() {
   const r = getRecords()[todayKey()];
   const el = document.getElementById('today-saved');
@@ -395,21 +419,6 @@ function checkTodaySaved() {
   } else {
     el.style.display = 'none';
   }
-}
-
-function getRecords() {
-  try { return JSON.parse(localStorage.getItem('tori_records') || '{}'); } catch { return {}; }
-}
-function saveRecords(r) { localStorage.setItem('tori_records', JSON.stringify(r)); }
-
-function switchPage(page, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
-  btn.classList.add('active');
-  if (page === 'album') renderAlbum();
-  if (page === 'graph') renderGraphs();
-  if (page === 'records') renderRecords();
 }
 
 // ===== Today's one shot =====
@@ -426,47 +435,6 @@ function handleShotPhoto(input) {
   });
 }
 
-// ===== Scale photo + OCR =====
-async function handleScalePhoto(type, input) {
-  const file = input.files[0];
-  if (!file) return;
-  const dataUrl = await fileToDataUrl(file);
-
-  const previewId = type === 'weight' ? 'weight' : type === 'food-before' ? 'food-before' : 'food-after';
-  showPreview(previewId, dataUrl);
-
-  const statusId = type + '-status';
-  const valId = type + '-val';
-  document.getElementById(statusId).innerHTML = '<span class="spinner"></span>読み取り中...';
-
-  const val = await ocrNumber(dataUrl);
-
-  if (type === 'weight') state.weight = { value: val, dataUrl };
-  else if (type === 'food-before') state.foodBefore = { value: val, dataUrl };
-  else state.foodAfter = { value: val, dataUrl };
-
-  const inputEl = document.getElementById(valId);
-  if (val !== null) {
-    inputEl.value = val;
-    document.getElementById(statusId).textContent = '自動読み取り済み（修正できます）';
-  } else {
-    inputEl.value = '';
-    document.getElementById(statusId).textContent = '読み取り失敗。手で入力してください';
-  }
-
-  updateFoodCalc();
-  updateSaveBtn();
-}
-
-function showPreview(prefix, dataUrl) {
-  const img = document.getElementById(prefix + '-preview');
-  const btn = document.getElementById(prefix + '-btn');
-  img.src = dataUrl; img.style.display = 'block';
-  btn.classList.add('has-photo');
-  const inner = document.getElementById(prefix + '-inner');
-  if (inner) inner.querySelector('span').textContent = '撮り直す';
-}
-
 function fileToDataUrl(file) {
   return new Promise(resolve => {
     const r = new FileReader();
@@ -475,92 +443,20 @@ function fileToDataUrl(file) {
   });
 }
 
+// ===== Number input =====
 function onNumInput(type, val) {
   const num = parseFloat(val);
   const v = isNaN(num) ? null : num;
-  if (type === 'weight') state.weight.value = v;
-  else if (type === 'food-before') state.foodBefore.value = v;
-  else state.foodAfter.value = v;
+  if (type === 'weight') state.weight = v;
+  else if (type === 'food-before') state.foodBefore = v;
+  else state.foodAfter = v;
   updateFoodCalc();
   updateSaveBtn();
 }
 
-// ===== OCR with image preprocessing =====
-async function ocrNumber(dataUrl) {
-  try {
-    // Try normal and inverted, pick best result
-    const [normal, inverted] = await Promise.all([
-      preprocessImage(dataUrl, false),
-      preprocessImage(dataUrl, true),
-    ]);
-    const [r1, r2] = await Promise.all([
-      runOcr(normal),
-      runOcr(inverted),
-    ]);
-    // Prefer the one that gave a valid result; if both valid, prefer inverted (LED displays)
-    if (r2 !== null) return r2;
-    return r1;
-  } catch (e) {
-    return null;
-  }
-}
-
-async function runOcr(processedDataUrl) {
-  try {
-    const result = await Tesseract.recognize(processedDataUrl, 'eng', {
-      tessedit_char_whitelist: '0123456789.',
-      tessedit_pageseg_mode: '7',
-    });
-    const text = result.data.text.replace(/[^\d.]/g, '');
-    const matches = text.match(/\d+\.?\d*/g);
-    if (!matches || matches.length === 0) return null;
-    const best = matches.reduce((a, b) => b.replace('.','').length > a.replace('.','').length ? b : a);
-    let num = parseFloat(best);
-    if (isNaN(num) || num <= 0) return null;
-    // LED scale: decimal point (or colon) often lost in binarization
-    // e.g. "2358" should be 23.58, "1419" should be 14.19
-    if (num > 100 && num < 10000 && !best.includes('.') && best.length >= 3) {
-      const candidate = parseFloat(best.slice(0, -2) + '.' + best.slice(-2));
-      if (candidate > 0 && candidate <= 200) num = candidate;
-    }
-    if (num <= 0 || num > 500) return null;
-    return Math.round(num * 100) / 100;
-  } catch (e) {
-    return null;
-  }
-}
-
-function preprocessImage(dataUrl, invert) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      // Keep size reasonable for speed
-      const maxSize = 600;
-      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = imageData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        // Use max(R,G,B) instead of weighted gray — works for blue/green/red LED displays
-        const bright = Math.max(d[i], d[i+1], d[i+2]);
-        const v = invert ? (bright < 128 ? 255 : 0) : (bright > 128 ? 255 : 0);
-        d[i] = d[i+1] = d[i+2] = v;
-      }
-      ctx.putImageData(imageData, 0, 0);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.src = dataUrl;
-  });
-}
-
 // ===== Food calc =====
 function updateFoodCalc() {
-  const b = state.foodBefore.value, a = state.foodAfter.value;
+  const b = state.foodBefore, a = state.foodAfter;
   const calc = document.getElementById('food-calc');
   if (b !== null && a !== null) {
     const eaten = Math.max(0, Math.round((b - a) * 10) / 10);
@@ -572,18 +468,15 @@ function updateFoodCalc() {
 }
 
 function getEaten() {
-  const b = state.foodBefore.value, a = state.foodAfter.value;
+  const b = state.foodBefore, a = state.foodAfter;
   if (b === null || a === null) return null;
   return Math.max(0, Math.round((b - a) * 10) / 10);
 }
 
+// ===== Save button =====
 function updateSaveBtn() {
-  const btn = document.getElementById('save-btn');
-  btn.disabled = !(
-    state.weight.value !== null || state.weight.dataUrl !== null ||
-    state.foodBefore.dataUrl !== null || state.foodAfter.dataUrl !== null ||
-    getEaten() !== null || state.todayPhoto !== null
-  );
+  document.getElementById('save-btn').disabled =
+    !(state.weight !== null || getEaten() !== null || state.todayPhoto !== null);
 }
 
 // ===== Save =====
@@ -592,54 +485,37 @@ function saveRecord() {
   const records = getRecords();
   records[key] = {
     date: key,
-    weight: state.weight.value,
-    foodBefore: state.foodBefore.value,
-    foodAfter: state.foodAfter.value,
+    weight: state.weight,
+    foodBefore: state.foodBefore,
+    foodAfter: state.foodAfter,
     foodEaten: getEaten(),
     todayPhoto: state.todayPhoto,
-    photos: {
-      weight: state.weight.dataUrl || null,
-      foodBefore: state.foodBefore.dataUrl || null,
-      foodAfter: state.foodAfter.dataUrl || null,
-    },
     savedAt: new Date().toISOString(),
   };
   saveRecords(records);
   showToast('保存しました！');
   checkTodaySaved();
-  // Restore state from saved record so form stays functional for overwrites
   const saved = records[key];
-  state = {
-    weight: { value: saved.weight, dataUrl: saved.photos.weight },
-    foodBefore: { value: saved.foodBefore, dataUrl: saved.photos.foodBefore },
-    foodAfter: { value: saved.foodAfter, dataUrl: saved.photos.foodAfter },
-    todayPhoto: saved.todayPhoto,
-  };
+  state = { weight: saved.weight, foodBefore: saved.foodBefore, foodAfter: saved.foodAfter, todayPhoto: saved.todayPhoto };
   updateSaveBtn();
 }
 
-// ===== Album (今日の一枚のみ) =====
+// ===== Album =====
 function renderAlbum() {
-  const records = getRecords();
+  const records = getRecords(albumBird);
   const keys = Object.keys(records).filter(k => records[k].todayPhoto).sort().reverse();
   const container = document.getElementById('album-content');
-
   if (keys.length === 0) {
+    const name = getBirdNames()[albumBird];
     container.innerHTML =
       '<div class="album-empty">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>' +
       '<div>まだ写真がありません</div>' +
-      '<div style="font-size:12px;margin-top:6px;">「今日の一枚」で文鳥ちゃんを撮ってね</div></div>';
+      '<div style="font-size:12px;margin-top:6px;">' + name + 'の「今日の一枚」を撮ってね</div></div>';
     return;
   }
-
   const months = {};
-  keys.forEach(k => {
-    const m = k.slice(0, 7);
-    if (!months[m]) months[m] = [];
-    months[m].push(k);
-  });
-
+  keys.forEach(k => { const m = k.slice(0,7); if (!months[m]) months[m]=[]; months[m].push(k); });
   let html = '';
   Object.keys(months).sort().reverse().forEach(m => {
     const [y, mo] = m.split('-');
@@ -648,8 +524,7 @@ function renderAlbum() {
       const d = k.split('-');
       html += '<div class="album-thumb" onclick="openModal(\'' + k + '\')">' +
         '<img src="' + records[k].todayPhoto + '" loading="lazy">' +
-        '<div class="thumb-date">' + parseInt(d[1]) + '/' + parseInt(d[2]) + '</div>' +
-        '</div>';
+        '<div class="thumb-date">' + parseInt(d[1]) + '/' + parseInt(d[2]) + '</div></div>';
     });
     html += '</div></div>';
   });
@@ -657,7 +532,7 @@ function renderAlbum() {
 }
 
 function openModal(key) {
-  const r = getRecords()[key];
+  const r = getRecords(albumBird)[key];
   if (!r) return;
   document.getElementById('modal-img').src = r.todayPhoto || '';
   const d = key.split('-');
@@ -680,7 +555,7 @@ function setRange(days, btn) {
 }
 
 function renderGraphs() {
-  const records = getRecords();
+  const records = getRecords(graphBird);
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - chartRange + 1);
   const keys = Object.keys(records).sort().filter(k => new Date(k) >= cutoff);
   const labels = keys.map(k => { const d=k.split('-'); return parseInt(d[1])+'/'+parseInt(d[2]); });
@@ -701,20 +576,19 @@ function makeChart(id, labels, data, color) {
 
 // ===== Records =====
 function renderRecords() {
-  const records = getRecords();
+  const records = getRecords(recBird);
   const keys = Object.keys(records).sort().reverse();
   const container = document.getElementById('records-list');
   if (keys.length === 0) { container.innerHTML = '<div class="no-data">まだ記録がありません</div>'; return; }
   let html = '';
   keys.forEach(k => {
     const r = records[k];
-    const thumb = r.todayPhoto || r.photos?.weight || r.photos?.foodBefore;
     const d = k.split('-');
     const stats = [];
     if (r.weight != null) stats.push('体重 ' + r.weight + 'g');
     if (r.foodEaten != null) stats.push('食べた ' + r.foodEaten + 'g');
     html += '<div class="record-item">' +
-      (thumb ? '<img class="ri-thumb" src="' + thumb + '">' : '<div class="ri-thumb"></div>') +
+      (r.todayPhoto ? '<img class="ri-thumb" src="' + r.todayPhoto + '">' : '<div class="ri-thumb"></div>') +
       '<div class="ri-info"><div class="ri-date">' + d[0] + '年' + parseInt(d[1]) + '月' + parseInt(d[2]) + '日</div>' +
       '<div class="ri-stats">' + (stats.join(' / ') || '—') + '</div></div>' +
       '<button class="ri-del" onclick="deleteRecord(\'' + k + '\')">&#x00D7;</button></div>';
@@ -724,11 +598,11 @@ function renderRecords() {
 
 function deleteRecord(key) {
   if (!confirm(key + ' の記録を削除しますか？')) return;
-  const records = getRecords();
+  const records = getRecords(recBird);
   delete records[key];
-  saveRecords(records);
+  saveRecords(records, recBird);
   renderRecords();
-  checkTodaySaved();
+  if (recBird === activeBird) checkTodaySaved();
   showToast('削除しました');
 }
 
