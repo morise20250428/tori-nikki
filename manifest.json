@@ -1,0 +1,15 @@
+{
+  "name": "とりにっき",
+  "short_name": "とりにっき",
+  "start_url": "/tori-nikki/",
+  "display": "standalone",
+  "background_color": "#fdf8f0",
+  "theme_color": "#e8a87c",
+  "icons": [
+    {
+      "src": "名称未設定のデザイン.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}
