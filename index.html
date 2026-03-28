@@ -22,88 +22,120 @@
   }
   body { background: var(--bg); color: var(--text); font-family: 'Helvetica Neue', sans-serif; max-width: 480px; margin: 0 auto; min-height: 100vh; }
 
-  /* Nav */
   nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; height: var(--nav-h); background: var(--card); border-top: 1px solid var(--border); display: flex; z-index: 100; box-shadow: 0 -2px 12px rgba(0,0,0,.06); }
   nav button { flex: 1; background: none; border: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; color: var(--sub); cursor: pointer; transition: color .2s; padding: 8px 0; }
   nav button.active { color: var(--accent); }
   nav button svg { width: 24px; height: 24px; }
 
-  /* Pages */
   main { padding: 0 0 calc(var(--nav-h) + 8px); min-height: 100vh; }
   .page { display: none; padding: 0 16px 16px; }
   .page.active { display: block; }
 
-  /* Header */
   .header { padding: 20px 0 12px; display: flex; align-items: center; justify-content: space-between; }
   .header h1 { font-size: 22px; font-weight: 700; }
   .header .date { font-size: 13px; color: var(--sub); }
 
-  /* Today record */
-  .section-title { font-size: 13px; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: .5px; margin: 20px 0 10px; }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--sub); letter-spacing: .5px; margin: 16px 0 10px; }
   .card { background: var(--card); border-radius: 16px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.05); margin-bottom: 12px; }
 
-  /* Photo capture area */
+  /* Photo capture - label approach for reliable iOS support */
+  .photo-label {
+    display: block;
+    background: var(--bg);
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    aspect-ratio: 1;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color .2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .photo-label:active { border-color: var(--accent); }
+  .photo-label img.preview {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 10px;
+  }
+  .photo-label .ph-inner {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--sub);
+  }
+  .photo-label.has-photo .ph-inner {
+    background: rgba(0,0,0,.45); color: #fff;
+  }
+  .photo-label input[type=file] { display: none; }
+
+  /* Wide photo (today's one shot) */
+  .photo-label-wide {
+    display: block;
+    background: var(--bg);
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    width: 100%;
+    aspect-ratio: 4/3;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color .2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .photo-label-wide:active { border-color: var(--accent); }
+  .photo-label-wide img.preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+  .photo-label-wide .ph-inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--sub); }
+  .photo-label-wide.has-photo .ph-inner { background: rgba(0,0,0,.4); color: #fff; }
+  .photo-label-wide input[type=file] { display: none; }
+
   .capture-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-  .capture-btn { background: var(--bg); border: 2px dashed var(--border); border-radius: 12px; aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-size: 12px; color: var(--sub); position: relative; overflow: hidden; transition: border-color .2s; }
-  .capture-btn:hover { border-color: var(--accent); }
-  .capture-btn img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
-  .capture-btn .label { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-  .capture-btn.has-photo .label { background: rgba(0,0,0,.45); color: #fff; padding: 6px 10px; border-radius: 8px; }
-  .capture-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
 
-  /* OCR result display */
-  .ocr-result { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--bg); border-radius: 10px; margin-top: 8px; min-height: 48px; flex-wrap: wrap; }
-  .ocr-result .value { font-size: 26px; font-weight: 700; color: var(--text); }
-  .ocr-result .unit { font-size: 14px; color: var(--sub); }
-  .ocr-result .status { font-size: 12px; color: var(--sub); }
-  .ocr-result .edit-btn { margin-left: auto; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--sub); }
-  .ocr-result input.edit-val { font-size: 22px; font-weight: 700; border: none; background: none; width: 90px; outline: none; color: var(--text); }
+  /* OCR result - always shows editable input */
+  .ocr-box { background: var(--bg); border-radius: 10px; padding: 10px 14px; margin-top: 8px; }
+  .ocr-box .ocr-label { font-size: 11px; color: var(--sub); margin-bottom: 6px; }
+  .ocr-box .ocr-input-row { display: flex; align-items: center; gap: 6px; }
+  .ocr-box input.num-input {
+    font-size: 28px; font-weight: 700; border: none; background: none;
+    width: 100px; outline: none; color: var(--text); border-bottom: 2px solid var(--border);
+    padding: 2px 0;
+  }
+  .ocr-box input.num-input:focus { border-bottom-color: var(--accent); }
+  .ocr-box .unit { font-size: 14px; color: var(--sub); }
+  .ocr-box .ocr-status { font-size: 11px; color: var(--sub); margin-top: 4px; min-height: 16px; }
 
-  /* Calculated result */
   .calc-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: linear-gradient(135deg, #e8f8f3, #d4f0e8); border-radius: 12px; margin-top: 10px; }
   .calc-row .label { font-size: 13px; color: var(--text); }
   .calc-row .value { font-size: 24px; font-weight: 700; color: var(--accent2); }
 
-  /* Save button */
   .save-btn { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 16px; transition: opacity .2s; }
   .save-btn:disabled { opacity: .4; cursor: default; }
-  .save-btn:not(:disabled):hover { opacity: .9; }
 
-  /* Today summary card */
   .today-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .stat-card { background: var(--card); border-radius: 14px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
   .stat-card .s-label { font-size: 11px; color: var(--sub); margin-bottom: 4px; }
   .stat-card .s-val { font-size: 24px; font-weight: 700; }
   .stat-card .s-unit { font-size: 12px; color: var(--sub); }
+  .today-photo-thumb { width: 100%; border-radius: 10px; margin-top: 10px; max-height: 160px; object-fit: cover; display: none; }
 
-  /* Toast */
   .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-60px); background: #3a2f2f; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; z-index: 999; transition: transform .3s ease; white-space: nowrap; }
   .toast.show { transform: translateX(-50%) translateY(0); }
 
-  /* OCR spinner */
-  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 4px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Album page */
+  /* Album */
   .month-group { margin-bottom: 24px; }
   .month-label { font-size: 14px; font-weight: 600; color: var(--sub); margin-bottom: 10px; }
   .album-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
   .album-thumb { aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer; position: relative; background: var(--border); }
   .album-thumb img { width: 100%; height: 100%; object-fit: cover; }
-  .album-thumb .thumb-date { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,.5)); padding: 8px 4px 4px; font-size: 9px; color: #fff; text-align: center; }
+  .album-thumb .thumb-date { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,.55)); padding: 10px 4px 4px; font-size: 10px; color: #fff; text-align: center; }
   .album-empty { text-align: center; padding: 60px 20px; color: var(--sub); }
   .album-empty svg { width: 64px; height: 64px; opacity: .3; margin-bottom: 12px; }
 
-  /* Photo modal */
-  .modal { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.85); align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
+  .modal { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.88); align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
   .modal.open { display: flex; }
-  .modal img { max-width: 100%; max-height: 70vh; border-radius: 12px; object-fit: contain; }
+  .modal img { max-width: 100%; max-height: 72vh; border-radius: 12px; object-fit: contain; }
   .modal-info { color: #fff; margin-top: 12px; text-align: center; }
   .modal-info .mi-date { font-size: 16px; font-weight: 600; }
   .modal-info .mi-stats { font-size: 13px; color: rgba(255,255,255,.7); margin-top: 4px; }
   .modal-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.15); border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-  /* Graph page */
   .chart-card { background: var(--card); border-radius: 16px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.05); margin-bottom: 16px; }
   .chart-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--sub); }
   .chart-wrap { position: relative; height: 180px; }
@@ -111,19 +143,16 @@
   .range-btns button { flex: 1; padding: 8px; border: 1px solid var(--border); background: var(--card); border-radius: 10px; font-size: 13px; cursor: pointer; color: var(--sub); }
   .range-btns button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-  /* Records list */
   .record-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
   .record-item:last-child { border-bottom: none; }
   .record-item .ri-thumb { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; background: var(--border); flex-shrink: 0; }
   .record-item .ri-info .ri-date { font-size: 13px; font-weight: 600; }
   .record-item .ri-info .ri-stats { font-size: 12px; color: var(--sub); margin-top: 2px; }
   .record-item .ri-del { margin-left: auto; background: none; border: none; cursor: pointer; color: #ccc; font-size: 20px; padding: 4px 8px; line-height: 1; }
-  .record-item .ri-del:hover { color: #e87c7c; }
   .no-data { text-align: center; padding: 40px; color: var(--sub); font-size: 14px; }
 </style>
 </head>
 <body>
-
 <main>
   <!-- TODAY PAGE -->
   <div id="page-today" class="page active">
@@ -134,7 +163,7 @@
       </div>
     </div>
 
-    <!-- Today summary if record exists -->
+    <!-- Today saved summary -->
     <div id="today-saved" style="display:none; margin-bottom:16px;">
       <div class="section-title" style="margin-top:0;">今日の記録</div>
       <div class="today-summary">
@@ -147,27 +176,45 @@
           <div><span class="s-val" id="sum-food">—</span> <span class="s-unit">g</span></div>
         </div>
       </div>
+      <img id="sum-photo" class="today-photo-thumb" src="" alt="">
       <div style="margin-top:10px; background:var(--card); border-radius:14px; padding:12px 14px; font-size:13px; color:var(--sub); box-shadow:0 2px 8px rgba(0,0,0,.04);">
         今日はもう記録済みです。下のフォームから上書き保存できます。
       </div>
+    </div>
+
+    <!-- Today's one shot -->
+    <div class="card">
+      <div class="section-title" style="margin-top:0;">今日の一枚</div>
+      <label class="photo-label-wide" id="shot-btn" for="shot-input">
+        <img class="preview" id="shot-preview" src="" style="display:none;">
+        <div class="ph-inner" id="shot-inner">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span>文鳥の写真を撮る</span>
+        </div>
+        <input type="file" accept="image/*" id="shot-input" onchange="handleShotPhoto(this)">
+      </label>
     </div>
 
     <!-- Weight section -->
     <div class="card">
       <div class="section-title" style="margin-top:0;">体重の記録</div>
       <div class="capture-row">
-        <div class="capture-btn" id="weight-btn">
-          <img id="weight-preview" src="" style="display:none;">
-          <div class="label" id="weight-label">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
+        <label class="photo-label" id="weight-btn" for="weight-input">
+          <img class="preview" id="weight-preview" src="" style="display:none;">
+          <div class="ph-inner" id="weight-inner">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
             <span>体重計の写真</span>
           </div>
-          <input type="file" accept="image/*" capture="environment" id="weight-input" onchange="handlePhoto('weight', this)">
-        </div>
-        <div style="display:flex; flex-direction:column; justify-content:center; gap:6px;">
-          <div style="font-size:12px; color:var(--sub);">読み取り結果</div>
-          <div class="ocr-result" id="weight-ocr">
-            <span class="status">写真を撮ってください</span>
+          <input type="file" accept="image/*" capture="environment" id="weight-input" onchange="handleScalePhoto('weight', this)">
+        </label>
+        <div style="display:flex; flex-direction:column; justify-content:center;">
+          <div class="ocr-box" id="weight-ocr-box">
+            <div class="ocr-label">体重</div>
+            <div class="ocr-input-row">
+              <input class="num-input" type="number" step="0.1" placeholder="—" id="weight-val" oninput="onNumInput('weight', this.value)">
+              <span class="unit">g</span>
+            </div>
+            <div class="ocr-status" id="weight-status">写真を撮ると自動入力</div>
           </div>
         </div>
       </div>
@@ -177,35 +224,45 @@
     <div class="card">
       <div class="section-title" style="margin-top:0;">餌の記録</div>
       <div class="capture-row">
-        <div class="capture-btn" id="food-before-btn">
-          <img id="food-before-preview" src="" style="display:none;">
-          <div class="label" id="food-before-label">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
-            <span>与える前の量</span>
-          </div>
-          <input type="file" accept="image/*" capture="environment" id="food-before-input" onchange="handlePhoto('food-before', this)">
-        </div>
-        <div class="capture-btn" id="food-after-btn">
-          <img id="food-after-preview" src="" style="display:none;">
-          <div class="label" id="food-after-label">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
-            <span>食べた後の残量</span>
-          </div>
-          <input type="file" accept="image/*" capture="environment" id="food-after-input" onchange="handlePhoto('food-after', this)">
-        </div>
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
         <div>
-          <div style="font-size:11px;color:var(--sub);margin-bottom:4px;">与えた量</div>
-          <div class="ocr-result" id="food-before-ocr"><span class="status">写真を撮ってください</span></div>
+          <label class="photo-label" id="food-before-btn" for="food-before-input">
+            <img class="preview" id="food-before-preview" src="" style="display:none;">
+            <div class="ph-inner" id="food-before-inner">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
+              <span>与える前</span>
+            </div>
+            <input type="file" accept="image/*" capture="environment" id="food-before-input" onchange="handleScalePhoto('food-before', this)">
+          </label>
+          <div class="ocr-box" style="margin-top:8px;">
+            <div class="ocr-label">与えた量</div>
+            <div class="ocr-input-row">
+              <input class="num-input" type="number" step="0.1" placeholder="—" id="food-before-val" oninput="onNumInput('food-before', this.value)">
+              <span class="unit">g</span>
+            </div>
+            <div class="ocr-status" id="food-before-status">写真を撮ると自動入力</div>
+          </div>
         </div>
         <div>
-          <div style="font-size:11px;color:var(--sub);margin-bottom:4px;">残った量</div>
-          <div class="ocr-result" id="food-after-ocr"><span class="status">写真を撮ってください</span></div>
+          <label class="photo-label" id="food-after-btn" for="food-after-input">
+            <img class="preview" id="food-after-preview" src="" style="display:none;">
+            <div class="ph-inner" id="food-after-inner">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
+              <span>食べた後</span>
+            </div>
+            <input type="file" accept="image/*" capture="environment" id="food-after-input" onchange="handleScalePhoto('food-after', this)">
+          </label>
+          <div class="ocr-box" style="margin-top:8px;">
+            <div class="ocr-label">残った量</div>
+            <div class="ocr-input-row">
+              <input class="num-input" type="number" step="0.1" placeholder="—" id="food-after-val" oninput="onNumInput('food-after', this.value)">
+              <span class="unit">g</span>
+            </div>
+            <div class="ocr-status" id="food-after-status">写真を撮ると自動入力</div>
+          </div>
         </div>
       </div>
-      <div class="calc-row" id="food-calc" style="display:none; margin-top:10px;">
-        <div class="label">食べた量（計算値）</div>
+      <div class="calc-row" id="food-calc" style="display:none;">
+        <div class="label">食べた量（計算）</div>
         <div><span class="value" id="food-eaten-val">—</span> <span style="font-size:13px;color:var(--sub);">g</span></div>
       </div>
     </div>
@@ -244,7 +301,6 @@
   </div>
 </main>
 
-<!-- Bottom Nav -->
 <nav>
   <button class="active" onclick="switchPage('today', this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3"/><path d="M12 14c-5 0-7 2-7 4v1h14v-1c0-2-2-4-7-4z"/></svg>
@@ -264,7 +320,6 @@
   </button>
 </nav>
 
-<!-- Photo modal -->
 <div class="modal" id="photo-modal" onclick="closeModal()">
   <button class="modal-close" onclick="closeModal()">&#x2715;</button>
   <img id="modal-img" src="" alt="">
@@ -282,11 +337,11 @@ let state = {
   weight: { value: null, dataUrl: null },
   foodBefore: { value: null, dataUrl: null },
   foodAfter: { value: null, dataUrl: null },
+  todayPhoto: null,
 };
 let chartRange = 7;
 let weightChart = null, foodChart = null;
 
-// ===== Init =====
 document.addEventListener('DOMContentLoaded', () => {
   updateDateHeader();
   checkTodaySaved();
@@ -294,37 +349,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function updateDateHeader() {
   const now = new Date();
-  const opts = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
-  document.getElementById('today-date').textContent = now.toLocaleDateString('ja-JP', opts);
+  document.getElementById('today-date').textContent =
+    now.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
 }
 
 function todayKey() {
   const d = new Date();
-  return d.getFullYear() + '-' +
-    String(d.getMonth()+1).padStart(2,'0') + '-' +
-    String(d.getDate()).padStart(2,'0');
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
 function checkTodaySaved() {
-  const records = getRecords();
-  const today = records[todayKey()];
+  const r = getRecords()[todayKey()];
   const el = document.getElementById('today-saved');
-  if (today) {
+  if (r) {
     el.style.display = 'block';
-    document.getElementById('sum-weight').textContent = today.weight ?? '—';
-    document.getElementById('sum-food').textContent = today.foodEaten ?? '—';
+    document.getElementById('sum-weight').textContent = r.weight ?? '—';
+    document.getElementById('sum-food').textContent = r.foodEaten ?? '—';
+    const ph = document.getElementById('sum-photo');
+    if (r.todayPhoto) { ph.src = r.todayPhoto; ph.style.display = 'block'; }
+    else { ph.style.display = 'none'; }
   } else {
     el.style.display = 'none';
   }
 }
 
-// ===== Storage =====
 function getRecords() {
   try { return JSON.parse(localStorage.getItem('tori_records') || '{}'); } catch { return {}; }
 }
 function saveRecords(r) { localStorage.setItem('tori_records', JSON.stringify(r)); }
 
-// ===== Navigation =====
 function switchPage(page, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
@@ -335,34 +388,59 @@ function switchPage(page, btn) {
   if (page === 'records') renderRecords();
 }
 
-// ===== Photo + OCR =====
-async function handlePhoto(type, input) {
+// ===== Today's one shot =====
+function handleShotPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  fileToDataUrl(file).then(dataUrl => {
+    state.todayPhoto = dataUrl;
+    const img = document.getElementById('shot-preview');
+    img.src = dataUrl; img.style.display = 'block';
+    document.getElementById('shot-btn').classList.add('has-photo');
+    document.getElementById('shot-inner').querySelector('span').textContent = '撮り直す';
+    updateSaveBtn();
+  });
+}
+
+// ===== Scale photo + OCR =====
+async function handleScalePhoto(type, input) {
   const file = input.files[0];
   if (!file) return;
   const dataUrl = await fileToDataUrl(file);
 
-  if (type === 'weight') {
-    showPreview('weight', dataUrl);
-    setOcrLoading('weight-ocr');
-    const val = await ocrNumber(dataUrl);
-    state.weight = { value: val, dataUrl };
-    setOcrResult('weight-ocr', val, 'g', 'weight');
-  } else if (type === 'food-before') {
-    showPreview('food-before', dataUrl);
-    setOcrLoading('food-before-ocr');
-    const val = await ocrNumber(dataUrl);
-    state.foodBefore = { value: val, dataUrl };
-    setOcrResult('food-before-ocr', val, 'g', 'food-before');
-  } else if (type === 'food-after') {
-    showPreview('food-after', dataUrl);
-    setOcrLoading('food-after-ocr');
-    const val = await ocrNumber(dataUrl);
-    state.foodAfter = { value: val, dataUrl };
-    setOcrResult('food-after-ocr', val, 'g', 'food-after');
+  const previewId = type === 'weight' ? 'weight' : type === 'food-before' ? 'food-before' : 'food-after';
+  showPreview(previewId, dataUrl);
+
+  const statusId = type + '-status';
+  const valId = type + '-val';
+  document.getElementById(statusId).innerHTML = '<span class="spinner"></span>読み取り中...';
+
+  const val = await ocrNumber(dataUrl);
+
+  if (type === 'weight') state.weight = { value: val, dataUrl };
+  else if (type === 'food-before') state.foodBefore = { value: val, dataUrl };
+  else state.foodAfter = { value: val, dataUrl };
+
+  const inputEl = document.getElementById(valId);
+  if (val !== null) {
+    inputEl.value = val;
+    document.getElementById(statusId).textContent = '自動読み取り済み（修正できます）';
+  } else {
+    inputEl.value = '';
+    document.getElementById(statusId).textContent = '読み取り失敗。手で入力してください';
   }
 
   updateFoodCalc();
   updateSaveBtn();
+}
+
+function showPreview(prefix, dataUrl) {
+  const img = document.getElementById(prefix + '-preview');
+  const btn = document.getElementById(prefix + '-btn');
+  img.src = dataUrl; img.style.display = 'block';
+  btn.classList.add('has-photo');
+  const inner = document.getElementById(prefix + '-inner');
+  if (inner) inner.querySelector('span').textContent = '撮り直す';
 }
 
 function fileToDataUrl(file) {
@@ -373,86 +451,76 @@ function fileToDataUrl(file) {
   });
 }
 
-function showPreview(prefix, dataUrl) {
-  const img = document.getElementById(prefix + '-preview');
-  const btn = document.getElementById(prefix + '-btn');
-  const label = document.getElementById(prefix + '-label');
-  img.src = dataUrl;
-  img.style.display = 'block';
-  btn.classList.add('has-photo');
-  label.querySelector('span').textContent = '再撮影';
-}
-
-function setOcrLoading(elId) {
-  document.getElementById(elId).innerHTML =
-    '<div class="spinner"></div><span class="status" style="margin-left:8px;">読み取り中...</span>';
-}
-
-function setOcrResult(elId, value, unit, stateKey) {
-  const el = document.getElementById(elId);
-  if (value === null) {
-    el.innerHTML =
-      '<span class="status">読み取り失敗 &nbsp;</span>' +
-      '<input class="edit-val" placeholder="手入力" type="number" step="0.1" ' +
-      'oninput="onManualInput(\'' + stateKey + '\', this.value)">' +
-      '<span class="unit">&nbsp;' + unit + '</span>';
-  } else {
-    el.innerHTML =
-      '<span class="value" id="' + elId + '-val">' + value + '</span>' +
-      '<span class="unit">&nbsp;' + unit + '</span>' +
-      '<button class="edit-btn" onclick="enableEdit(\'' + elId + '\',\'' + unit + '\',\'' + stateKey + '\')">修正</button>';
-  }
-}
-
-function enableEdit(elId, unit, stateKey) {
-  const el = document.getElementById(elId);
-  const current = document.getElementById(elId + '-val') ? document.getElementById(elId + '-val').textContent : '';
-  el.innerHTML =
-    '<input class="edit-val" value="' + current + '" type="number" step="0.1" ' +
-    'oninput="onManualInput(\'' + stateKey + '\', this.value)">' +
-    '<span class="unit">&nbsp;' + unit + '</span>';
-  el.querySelector('input').focus();
-}
-
-function onManualInput(stateKey, val) {
+function onNumInput(type, val) {
   const num = parseFloat(val);
   const v = isNaN(num) ? null : num;
-  if (stateKey === 'weight') state.weight.value = v;
-  if (stateKey === 'food-before') state.foodBefore.value = v;
-  if (stateKey === 'food-after') state.foodAfter.value = v;
+  if (type === 'weight') state.weight.value = v;
+  else if (type === 'food-before') state.foodBefore.value = v;
+  else state.foodAfter.value = v;
   updateFoodCalc();
   updateSaveBtn();
 }
 
-// ===== OCR =====
+// ===== OCR with image preprocessing =====
 async function ocrNumber(dataUrl) {
   try {
-    const result = await Tesseract.recognize(dataUrl, 'eng', {
+    const processed = await preprocessImage(dataUrl);
+    const result = await Tesseract.recognize(processed, 'eng', {
       tessedit_char_whitelist: '0123456789.',
+      tessedit_pageseg_mode: '7',
     });
     const text = result.data.text.replace(/[^\d.]/g, '');
     const matches = text.match(/\d+\.?\d*/g);
     if (!matches || matches.length === 0) return null;
-    const best = matches.sort((a, b) => b.length - a.length)[0];
+    // Pick the number with most digits (likely the main display)
+    const best = matches.reduce((a, b) => b.replace('.','').length > a.replace('.','').length ? b : a);
     const num = parseFloat(best);
-    return isNaN(num) ? null : Math.round(num * 10) / 10;
+    if (isNaN(num) || num <= 0 || num > 9999) return null;
+    return Math.round(num * 10) / 10;
   } catch (e) {
-    console.error('OCR error', e);
     return null;
   }
 }
 
+function preprocessImage(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      // Scale up for better OCR
+      const scale = Math.max(1, 800 / Math.max(img.width, img.height));
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // Grayscale + high contrast
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imageData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        // Grayscale
+        const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+        // High contrast threshold
+        const v = gray > 128 ? 255 : 0;
+        d[i] = d[i+1] = d[i+2] = v;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.src = dataUrl;
+  });
+}
+
 // ===== Food calc =====
 function updateFoodCalc() {
-  const before = state.foodBefore.value;
-  const after = state.foodAfter.value;
-  const calcRow = document.getElementById('food-calc');
-  if (before !== null && after !== null) {
-    const eaten = Math.max(0, Math.round((before - after) * 10) / 10);
+  const b = state.foodBefore.value, a = state.foodAfter.value;
+  const calc = document.getElementById('food-calc');
+  if (b !== null && a !== null) {
+    const eaten = Math.max(0, Math.round((b - a) * 10) / 10);
     document.getElementById('food-eaten-val').textContent = eaten;
-    calcRow.style.display = 'flex';
+    calc.style.display = 'flex';
   } else {
-    calcRow.style.display = 'none';
+    calc.style.display = 'none';
   }
 }
 
@@ -464,7 +532,7 @@ function getEaten() {
 
 function updateSaveBtn() {
   const btn = document.getElementById('save-btn');
-  btn.disabled = !(state.weight.value !== null || getEaten() !== null);
+  btn.disabled = !(state.weight.value !== null || getEaten() !== null || state.todayPhoto);
 }
 
 // ===== Save =====
@@ -477,6 +545,7 @@ function saveRecord() {
     foodBefore: state.foodBefore.value,
     foodAfter: state.foodAfter.value,
     foodEaten: getEaten(),
+    todayPhoto: state.todayPhoto,
     photos: {
       weight: state.weight.dataUrl || null,
       foodBefore: state.foodBefore.dataUrl || null,
@@ -487,26 +556,28 @@ function saveRecord() {
   saveRecords(records);
   showToast('保存しました！');
   checkTodaySaved();
+  // Reset
   state = {
     weight: { value: null, dataUrl: null },
     foodBefore: { value: null, dataUrl: null },
     foodAfter: { value: null, dataUrl: null },
+    todayPhoto: null,
   };
   document.getElementById('save-btn').disabled = true;
 }
 
-// ===== Album =====
+// ===== Album (今日の一枚のみ) =====
 function renderAlbum() {
   const records = getRecords();
-  const keys = Object.keys(records).sort().reverse();
+  const keys = Object.keys(records).filter(k => records[k].todayPhoto).sort().reverse();
   const container = document.getElementById('album-content');
 
   if (keys.length === 0) {
     container.innerHTML =
       '<div class="album-empty">' +
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg>' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>' +
       '<div>まだ写真がありません</div>' +
-      '<div style="font-size:12px;margin-top:6px;">今日タブで記録を始めましょう</div></div>';
+      '<div style="font-size:12px;margin-top:6px;">「今日の一枚」で文鳥ちゃんを撮ってね</div></div>';
     return;
   }
 
@@ -519,19 +590,14 @@ function renderAlbum() {
 
   let html = '';
   Object.keys(months).sort().reverse().forEach(m => {
-    const parts = m.split('-');
-    html += '<div class="month-group"><div class="month-label">' +
-      parts[0] + '年' + parseInt(parts[1]) + '月</div><div class="album-grid">';
+    const [y, mo] = m.split('-');
+    html += '<div class="month-group"><div class="month-label">' + y + '年' + parseInt(mo) + '月</div><div class="album-grid">';
     months[m].forEach(k => {
-      const r = records[k];
-      const thumb = r.photos && (r.photos.weight || r.photos.foodBefore || r.photos.foodAfter);
-      if (thumb) {
-        const d = k.split('-');
-        html += '<div class="album-thumb" onclick="openModal(\'' + k + '\')">' +
-          '<img src="' + thumb + '" loading="lazy">' +
-          '<div class="thumb-date">' + parseInt(d[1]) + '/' + parseInt(d[2]) + '</div>' +
-          '</div>';
-      }
+      const d = k.split('-');
+      html += '<div class="album-thumb" onclick="openModal(\'' + k + '\')">' +
+        '<img src="' + records[k].todayPhoto + '" loading="lazy">' +
+        '<div class="thumb-date">' + parseInt(d[1]) + '/' + parseInt(d[2]) + '</div>' +
+        '</div>';
     });
     html += '</div></div>';
   });
@@ -539,24 +605,19 @@ function renderAlbum() {
 }
 
 function openModal(key) {
-  const records = getRecords();
-  const r = records[key];
+  const r = getRecords()[key];
   if (!r) return;
-  const photo = r.photos && (r.photos.weight || r.photos.foodBefore || r.photos.foodAfter);
-  document.getElementById('modal-img').src = photo || '';
+  document.getElementById('modal-img').src = r.todayPhoto || '';
   const d = key.split('-');
-  document.getElementById('modal-date').textContent =
-    d[0] + '年' + parseInt(d[1]) + '月' + parseInt(d[2]) + '日';
+  document.getElementById('modal-date').textContent = d[0] + '年' + parseInt(d[1]) + '月' + parseInt(d[2]) + '日';
   const stats = [];
   if (r.weight != null) stats.push('体重 ' + r.weight + 'g');
-  if (r.foodEaten != null) stats.push('食べた量 ' + r.foodEaten + 'g');
+  if (r.foodEaten != null) stats.push('食べた ' + r.foodEaten + 'g');
   document.getElementById('modal-stats').textContent = stats.join('　');
   document.getElementById('photo-modal').classList.add('open');
 }
 
-function closeModal() {
-  document.getElementById('photo-modal').classList.remove('open');
-}
+function closeModal() { document.getElementById('photo-modal').classList.remove('open'); }
 
 // ===== Graph =====
 function setRange(days, btn) {
@@ -568,77 +629,43 @@ function setRange(days, btn) {
 
 function renderGraphs() {
   const records = getRecords();
-  const allKeys = Object.keys(records).sort();
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - chartRange + 1);
-  const keys = allKeys.filter(k => new Date(k) >= cutoff);
-
-  const labels = keys.map(k => { const d = k.split('-'); return parseInt(d[1]) + '/' + parseInt(d[2]); });
-  const weights = keys.map(k => records[k].weight);
-  const foods = keys.map(k => records[k].foodEaten);
-
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - chartRange + 1);
+  const keys = Object.keys(records).sort().filter(k => new Date(k) >= cutoff);
+  const labels = keys.map(k => { const d=k.split('-'); return parseInt(d[1])+'/'+parseInt(d[2]); });
   if (weightChart) weightChart.destroy();
   if (foodChart) foodChart.destroy();
-  weightChart = makeChart('weight-chart', labels, weights, '#e8a87c');
-  foodChart = makeChart('food-chart', labels, foods, '#7ec8b0');
+  weightChart = makeChart('weight-chart', labels, keys.map(k => records[k].weight), '#e8a87c');
+  foodChart = makeChart('food-chart', labels, keys.map(k => records[k].foodEaten), '#7ec8b0');
 }
 
-function makeChart(canvasId, labels, data, color) {
-  const ctx = document.getElementById(canvasId).getContext('2d');
-  return new Chart(ctx, {
+function makeChart(id, labels, data, color) {
+  return new Chart(document.getElementById(id).getContext('2d'), {
     type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        data,
-        borderColor: color,
-        backgroundColor: color + '33',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 5,
-        pointBackgroundColor: color,
-        spanGaps: false,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-        y: { grid: { color: '#f0e8df' }, ticks: { font: { size: 11 } } }
-      }
-    }
+    data: { labels, datasets: [{ data, borderColor: color, backgroundColor: color+'33', fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: color, spanGaps: false }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, ticks: { font: { size: 11 } } }, y: { grid: { color: '#f0e8df' }, ticks: { font: { size: 11 } } } } }
   });
 }
 
-// ===== Records list =====
+// ===== Records =====
 function renderRecords() {
   const records = getRecords();
   const keys = Object.keys(records).sort().reverse();
   const container = document.getElementById('records-list');
-
-  if (keys.length === 0) {
-    container.innerHTML = '<div class="no-data">まだ記録がありません</div>';
-    return;
-  }
-
+  if (keys.length === 0) { container.innerHTML = '<div class="no-data">まだ記録がありません</div>'; return; }
   let html = '';
   keys.forEach(k => {
     const r = records[k];
-    const thumb = r.photos && (r.photos.weight || r.photos.foodBefore || r.photos.foodAfter);
+    const thumb = r.todayPhoto || r.photos?.weight || r.photos?.foodBefore;
     const d = k.split('-');
     const stats = [];
     if (r.weight != null) stats.push('体重 ' + r.weight + 'g');
     if (r.foodEaten != null) stats.push('食べた ' + r.foodEaten + 'g');
     html += '<div class="record-item">' +
       (thumb ? '<img class="ri-thumb" src="' + thumb + '">' : '<div class="ri-thumb"></div>') +
-      '<div class="ri-info">' +
-        '<div class="ri-date">' + d[0] + '年' + parseInt(d[1]) + '月' + parseInt(d[2]) + '日</div>' +
-        '<div class="ri-stats">' + (stats.join(' / ') || '—') + '</div>' +
-      '</div>' +
-      '<button class="ri-del" onclick="deleteRecord(\'' + k + '\')" title="削除">&#x00D7;</button>' +
-      '</div>';
+      '<div class="ri-info"><div class="ri-date">' + d[0] + '年' + parseInt(d[1]) + '月' + parseInt(d[2]) + '日</div>' +
+      '<div class="ri-stats">' + (stats.join(' / ') || '—') + '</div></div>' +
+      '<button class="ri-del" onclick="deleteRecord(\'' + k + '\')">&#x00D7;</button></div>';
   });
   container.innerHTML = html;
 }
@@ -653,7 +680,6 @@ function deleteRecord(key) {
   showToast('削除しました');
 }
 
-// ===== Toast =====
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
