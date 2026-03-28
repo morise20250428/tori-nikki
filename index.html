@@ -59,7 +59,18 @@
     position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--sub);
   }
   .photo-label.has-photo .ph-inner {
-    background: rgba(0,0,0,.45); color: #fff;
+    background: none;
+    justify-content: flex-end;
+    padding-bottom: 6px;
+  }
+  .photo-label.has-photo .ph-inner svg { display: none; }
+  .photo-label.has-photo .ph-inner span {
+    background: rgba(0,0,0,.38);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    backdrop-filter: blur(2px);
   }
   .photo-label input[type=file] { display: none; }
 
@@ -80,7 +91,20 @@
   .photo-label-wide:active { border-color: var(--accent); }
   .photo-label-wide img.preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
   .photo-label-wide .ph-inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--sub); }
-  .photo-label-wide.has-photo .ph-inner { background: rgba(0,0,0,.4); color: #fff; }
+  .photo-label-wide.has-photo .ph-inner {
+    background: none;
+    justify-content: flex-end;
+    padding-bottom: 10px;
+  }
+  .photo-label-wide.has-photo .ph-inner svg { display: none; }
+  .photo-label-wide.has-photo .ph-inner span {
+    background: rgba(0,0,0,.38);
+    color: #fff;
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    backdrop-filter: blur(2px);
+  }
   .photo-label-wide input[type=file] { display: none; }
 
   .capture-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
@@ -464,15 +488,32 @@ function onNumInput(type, val) {
 // ===== OCR with image preprocessing =====
 async function ocrNumber(dataUrl) {
   try {
-    const processed = await preprocessImage(dataUrl);
-    const result = await Tesseract.recognize(processed, 'eng', {
+    // Try normal and inverted, pick best result
+    const [normal, inverted] = await Promise.all([
+      preprocessImage(dataUrl, false),
+      preprocessImage(dataUrl, true),
+    ]);
+    const [r1, r2] = await Promise.all([
+      runOcr(normal),
+      runOcr(inverted),
+    ]);
+    // Prefer the one that gave a valid result; if both valid, prefer inverted (LED displays)
+    if (r2 !== null) return r2;
+    return r1;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function runOcr(processedDataUrl) {
+  try {
+    const result = await Tesseract.recognize(processedDataUrl, 'eng', {
       tessedit_char_whitelist: '0123456789.',
       tessedit_pageseg_mode: '7',
     });
     const text = result.data.text.replace(/[^\d.]/g, '');
     const matches = text.match(/\d+\.?\d*/g);
     if (!matches || matches.length === 0) return null;
-    // Pick the number with most digits (likely the main display)
     const best = matches.reduce((a, b) => b.replace('.','').length > a.replace('.','').length ? b : a);
     const num = parseFloat(best);
     if (isNaN(num) || num <= 0 || num > 9999) return null;
@@ -482,26 +523,24 @@ async function ocrNumber(dataUrl) {
   }
 }
 
-function preprocessImage(dataUrl) {
+function preprocessImage(dataUrl, invert) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      // Scale up for better OCR
-      const scale = Math.max(1, 800 / Math.max(img.width, img.height));
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
+      // Keep size reasonable for speed
+      const maxSize = 600;
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      // Grayscale + high contrast
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const d = imageData.data;
       for (let i = 0; i < d.length; i += 4) {
-        // Grayscale
         const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-        // High contrast threshold
-        const v = gray > 128 ? 255 : 0;
+        const v = invert ? (gray < 128 ? 255 : 0) : (gray > 128 ? 255 : 0);
         d[i] = d[i+1] = d[i+2] = v;
       }
       ctx.putImageData(imageData, 0, 0);
