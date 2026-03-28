@@ -437,6 +437,20 @@ function checkTodaySaved() {
     const sc = document.getElementById('sum-comment');
     if (r.comment) { document.getElementById('sum-comment-text').textContent = r.comment; sc.style.display = 'block'; }
     else { sc.style.display = 'none'; }
+    // Restore state and form so overwrite works
+    state = { weight: r.weight ?? null, foodBefore: r.foodBefore ?? null, foodAfter: r.foodAfter ?? null, todayPhoto: r.todayPhoto ?? null, comment: r.comment || '' };
+    if (r.weight != null) document.getElementById('weight-val').value = r.weight;
+    if (r.foodBefore != null) document.getElementById('food-before-val').value = r.foodBefore;
+    if (r.foodAfter != null) document.getElementById('food-after-val').value = r.foodAfter;
+    if (r.comment) document.getElementById('comment-val').value = r.comment;
+    if (r.todayPhoto) {
+      const sp = document.getElementById('shot-preview');
+      sp.src = r.todayPhoto; sp.style.display = 'block';
+      document.getElementById('shot-btn').classList.add('has-photo');
+      document.getElementById('shot-inner').querySelector('span').textContent = '撮り直す';
+    }
+    updateFoodCalc();
+    updateSaveBtn();
   } else {
     el.style.display = 'none';
   }
