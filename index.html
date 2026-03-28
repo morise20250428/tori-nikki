@@ -229,7 +229,7 @@
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
             <span>体重計の写真</span>
           </div>
-          <input type="file" accept="image/*" capture="environment" id="weight-input" onchange="handleScalePhoto('weight', this)">
+          <input type="file" accept="image/*" id="weight-input" onchange="handleScalePhoto('weight', this)">
         </label>
         <div style="display:flex; flex-direction:column; justify-content:center;">
           <div class="ocr-box" id="weight-ocr-box">
@@ -255,7 +255,7 @@
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
               <span>与える前</span>
             </div>
-            <input type="file" accept="image/*" capture="environment" id="food-before-input" onchange="handleScalePhoto('food-before', this)">
+            <input type="file" accept="image/*" id="food-before-input" onchange="handleScalePhoto('food-before', this)">
           </label>
           <div class="ocr-box" style="margin-top:8px;">
             <div class="ocr-label">与えた量</div>
@@ -273,7 +273,7 @@
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
               <span>食べた後</span>
             </div>
-            <input type="file" accept="image/*" capture="environment" id="food-after-input" onchange="handleScalePhoto('food-after', this)">
+            <input type="file" accept="image/*" id="food-after-input" onchange="handleScalePhoto('food-after', this)">
           </label>
           <div class="ocr-box" style="margin-top:8px;">
             <div class="ocr-label">残った量</div>
@@ -546,8 +546,9 @@ function preprocessImage(dataUrl, invert) {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const d = imageData.data;
       for (let i = 0; i < d.length; i += 4) {
-        const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-        const v = invert ? (gray < 128 ? 255 : 0) : (gray > 128 ? 255 : 0);
+        // Use max(R,G,B) instead of weighted gray — works for blue/green/red LED displays
+        const bright = Math.max(d[i], d[i+1], d[i+2]);
+        const v = invert ? (bright < 128 ? 255 : 0) : (bright > 128 ? 255 : 0);
         d[i] = d[i+1] = d[i+2] = v;
       }
       ctx.putImageData(imageData, 0, 0);
