@@ -379,13 +379,16 @@ function todayKey() {
 function switchBird(idx) {
   activeBird = idx;
   [0, 1].forEach(i => document.getElementById('tab-bird-' + i).classList.toggle('active', i === idx));
-  state = { weight: null, foodBefore: null, foodAfter: null, todayPhoto: null };
+  state = { weight: null, foodBefore: null, foodAfter: null, todayPhoto: null, comment: '' };
   document.getElementById('weight-val').value = '';
   document.getElementById('food-before-val').value = '';
   document.getElementById('food-after-val').value = '';
   document.getElementById('food-calc').style.display = 'none';
   document.getElementById('comment-val').value = '';
-  document.getElementById('shot-input').value = '';
+  // iOS-safe file input reset
+  const si = document.getElementById('shot-input');
+  si.value = '';
+  if (si.value) { si.type = 'text'; si.type = 'file'; }
   const sp = document.getElementById('shot-preview');
   sp.src = ''; sp.style.display = 'none';
   document.getElementById('shot-btn').classList.remove('has-photo');
