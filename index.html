@@ -490,14 +490,19 @@ function compressImage(dataUrl) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const max = 1024;
-      const scale = Math.min(1, max / Math.max(img.width, img.height));
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', 0.75));
+      try {
+        const canvas = document.createElement('canvas');
+        const max = 1024;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      } catch(e) {
+        resolve(dataUrl); // 圧縮失敗時は元の画像を使用
+      }
     };
+    img.onerror = () => resolve(dataUrl); // 読み込み失敗時は元の画像を使用
     img.src = dataUrl;
   });
 }
@@ -540,9 +545,13 @@ function getEaten() {
 
 // ===== Save button =====
 function updateSaveBtn() {
+  const hasWeight  = document.getElementById('weight-val').value.trim() !== '';
+  const hasFoodB   = document.getElementById('food-before-val').value.trim() !== '';
+  const hasFoodA   = document.getElementById('food-after-val').value.trim() !== '';
+  const hasPhoto   = document.getElementById('shot-preview').style.display !== 'none';
+  const hasComment = document.getElementById('comment-val').value.trim() !== '';
   document.getElementById('save-btn').disabled =
-    !(state.weight !== null || state.foodBefore !== null || state.foodAfter !== null ||
-      state.todayPhoto !== null || state.comment);
+    !(hasWeight || hasFoodB || hasFoodA || hasPhoto || hasComment);
 }
 
 // ===== Save =====
