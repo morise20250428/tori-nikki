@@ -32,8 +32,12 @@
   .page.active { display: block; }
 
   .header { padding: 20px 0 8px; }
-  .header h1 { font-size: 26px; font-weight: 700; font-family: 'Zen Maru Gothic', sans-serif; color: var(--accent); letter-spacing: 2px; }
-  .header .date { font-size: 13px; color: var(--sub); margin-top: 2px; }
+  .header h1 { font-size: 26px; font-weight: 700; font-family: 'Zen Maru Gothic', sans-serif; color: var(--accent); letter-spacing: 2px; display: inline-block; background: rgba(255,255,255,0.92); padding: 4px 18px; border-radius: 20px; border: 2px solid #fff; box-shadow: 0 2px 10px rgba(232,168,124,.18); }
+  .header .date { font-size: 13px; color: var(--sub); margin-top: 6px; }
+  .date-nav { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .date-nav button { background: var(--card); border: 1px solid var(--border); border-radius: 8px; width: 30px; height: 30px; font-size: 16px; cursor: pointer; color: var(--sub); display: flex; align-items: center; justify-content: center; line-height: 1; }
+  .date-nav button:disabled { opacity: .3; cursor: default; }
+  .date-nav .nav-date { font-size: 13px; color: var(--sub); flex: 1; text-align: center; }
 
   .section-title { font-size: 13px; font-weight: 600; color: var(--sub); letter-spacing: .5px; margin: 16px 0 10px; }
   .card { background: var(--card); border-radius: 16px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.05); margin-bottom: 12px; }
@@ -140,7 +144,11 @@
   <div id="page-today" class="page active">
     <div class="header">
       <h1>とりにっき</h1>
-      <div class="date" id="today-date"></div>
+      <div class="date-nav">
+        <button onclick="changeDay(-1)" id="prev-day-btn">&#8592;</button>
+        <div class="nav-date" id="today-date"></div>
+        <button onclick="changeDay(1)" id="next-day-btn" disabled>&#8594;</button>
+      </div>
     </div>
 
     <!-- Bird tabs -->
@@ -157,7 +165,7 @@
 
     <!-- Today saved summary -->
     <div id="today-saved" style="display:none; margin-bottom:16px;">
-      <div class="section-title" style="margin-top:0;">今日の記録</div>
+      <div class="section-title" style="margin-top:0;" id="saved-date-label">今日の記録</div>
       <div class="today-summary">
         <div class="stat-card">
           <div class="s-label">体重</div>
@@ -174,7 +182,7 @@
         <div class="comment-display" id="sum-comment-text"></div>
       </div>
       <div style="margin-top:8px; background:var(--card); border-radius:14px; padding:12px 14px; font-size:13px; color:var(--sub); box-shadow:0 2px 8px rgba(0,0,0,.04);">
-        今日はもう記録済みです。下のフォームから上書き保存できます。
+        記録済みです。下のフォームから上書き保存できます。
       </div>
     </div>
 
@@ -316,6 +324,7 @@ let recBird = 0;
 let state = { weight: null, foodBefore: null, foodAfter: null, todayPhoto: null, comment: '' };
 let chartRange = 7;
 let weightChart = null, foodChart = null;
+let selectedDate = null; // set in DOMContentLoaded
 
 // ===== Bird names =====
 function getBirdNames() {
@@ -363,33 +372,50 @@ document.addEventListener('DOMContentLoaded', () => {
   if (localStorage.getItem('tori_records') && !localStorage.getItem('tori_records_0')) {
     localStorage.setItem('tori_records_0', localStorage.getItem('tori_records'));
   }
+  selectedDate = todayKey();
   updateDateHeader();
   updateBirdNameUI();
   checkTodaySaved();
 });
-
-function updateDateHeader() {
-  const now = new Date();
-  document.getElementById('today-date').textContent =
-    now.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
-}
 
 function todayKey() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
-// ===== Bird switching =====
-function switchBird(idx) {
-  activeBird = idx;
-  [0, 1].forEach(i => document.getElementById('tab-bird-' + i).classList.toggle('active', i === idx));
+function dateKeyToDisplay(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+}
+
+function updateDateHeader() {
+  document.getElementById('today-date').textContent = dateKeyToDisplay(selectedDate);
+  const isToday = selectedDate === todayKey();
+  document.getElementById('next-day-btn').disabled = isToday;
+  document.getElementById('save-btn').textContent = isToday ? '記録を保存する' : 'この日の記録を保存する';
+}
+
+function changeDay(delta) {
+  const [y, m, d] = selectedDate.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + delta);
+  const newKey = date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
+  // Don't go into the future
+  if (newKey > todayKey()) return;
+  selectedDate = newKey;
+  updateDateHeader();
+  resetForm();
+  checkTodaySaved();
+}
+
+function resetForm() {
   state = { weight: null, foodBefore: null, foodAfter: null, todayPhoto: null, comment: '' };
   document.getElementById('weight-val').value = '';
   document.getElementById('food-before-val').value = '';
   document.getElementById('food-after-val').value = '';
   document.getElementById('food-calc').style.display = 'none';
   document.getElementById('comment-val').value = '';
-  // iOS-safe file input reset
   const si = document.getElementById('shot-input');
   si.value = '';
   if (si.value) { si.type = 'text'; si.type = 'file'; }
@@ -398,6 +424,13 @@ function switchBird(idx) {
   document.getElementById('shot-btn').classList.remove('has-photo');
   document.getElementById('shot-inner').querySelector('span').textContent = '文鳥の写真を撮る';
   updateSaveBtn();
+}
+
+// ===== Bird switching =====
+function switchBird(idx) {
+  activeBird = idx;
+  [0, 1].forEach(i => document.getElementById('tab-bird-' + i).classList.toggle('active', i === idx));
+  resetForm();
   checkTodaySaved();
 }
 
@@ -432,10 +465,12 @@ function switchPage(page, btn) {
 
 // ===== Today summary =====
 function checkTodaySaved() {
-  const r = getRecords()[todayKey()];
+  const r = getRecords()[selectedDate];
   const el = document.getElementById('today-saved');
   if (r) {
     el.style.display = 'block';
+    const isToday = selectedDate === todayKey();
+    document.getElementById('saved-date-label').textContent = isToday ? '今日の記録' : dateKeyToDisplay(selectedDate) + ' の記録';
     document.getElementById('sum-weight').textContent = r.weight ?? '—';
     document.getElementById('sum-food').textContent = r.foodEaten ?? '—';
     const ph = document.getElementById('sum-photo');
@@ -556,7 +591,7 @@ function updateSaveBtn() {
 
 // ===== Save =====
 function saveRecord() {
-  const key = todayKey();
+  const key = selectedDate;
   const records = getRecords();
   records[key] = {
     date: key,
