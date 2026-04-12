@@ -485,11 +485,15 @@ function checkTodaySaved() {
     if (r.foodBefore != null) document.getElementById('food-before-val').value = r.foodBefore;
     if (r.foodAfter != null) document.getElementById('food-after-val').value = r.foodAfter;
     if (r.comment) document.getElementById('comment-val').value = r.comment;
+    const sp = document.getElementById('shot-preview');
     if (r.todayPhoto) {
-      const sp = document.getElementById('shot-preview');
       sp.src = r.todayPhoto; sp.style.display = 'block';
       document.getElementById('shot-btn').classList.add('has-photo');
       document.getElementById('shot-inner').querySelector('span').textContent = '撮り直す';
+    } else {
+      sp.src = ''; sp.style.display = 'none';
+      document.getElementById('shot-btn').classList.remove('has-photo');
+      document.getElementById('shot-inner').querySelector('span').textContent = '文鳥の写真を撮る';
     }
     updateFoodCalc();
     updateSaveBtn();
@@ -592,6 +596,13 @@ function updateSaveBtn() {
 // ===== Save =====
 function saveRecord() {
   const key = selectedDate;
+  // 保険：state.todayPhotoがnullでもプレビューに写真が表示されている場合はそちらを使う
+  if (!state.todayPhoto) {
+    const sp = document.getElementById('shot-preview');
+    if (sp.style.display !== 'none' && sp.src && sp.src.startsWith('data:')) {
+      state.todayPhoto = sp.src;
+    }
+  }
   const records = getRecords();
   records[key] = {
     date: key,
