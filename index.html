@@ -328,7 +328,7 @@ let selectedDate = null; // set in DOMContentLoaded
 
 // ===== Bird names =====
 function getBirdNames() {
-  try { return JSON.parse(localStorage.getItem('tori_bird_names') || '["文鳥1","文鳥2"]'); } catch { return ['文鳥1', '文鳥2']; }
+  try { return JSON.parse(localStorage.getItem('tori_bird_names') || '["文鳥1","文鳥2"]'); } catch(e) { return ['文鳥1', '文鳥2']; }
 }
 function saveBirdNames(names) { localStorage.setItem('tori_bird_names', JSON.stringify(names)); }
 
@@ -381,9 +381,9 @@ async function getRecords(birdIdx) {
       req.onsuccess = () => resolve(req.result || {});
       req.onerror = () => resolve({});
     });
-  } catch {
+  } catch(e) {
     // localStorageフォールバック
-    try { return JSON.parse(localStorage.getItem('tori_records_' + idx) || '{}'); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem('tori_records_' + idx) || '{}'); } catch(e2) { return {}; }
   }
 }
 
@@ -396,12 +396,12 @@ async function saveRecords(records, birdIdx) {
       req.onsuccess = () => resolve(true);
       req.onerror = () => resolve(false);
     });
-  } catch {
+  } catch(e) {
     // localStorageフォールバック
     try {
       localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
       return true;
-    } catch { return false; }
+    } catch(e2) { return false; }
   }
 }
 
