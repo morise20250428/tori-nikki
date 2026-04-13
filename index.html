@@ -352,79 +352,51 @@ function renameBird(idx) {
   }
 }
 
-// ===== Storage: IndexedDB優先、失敗時はlocalStorageにフォールバック =====
-let _db = null;
-let _idbFailed = false;
-
-function openDB() {
-  if (_db) return Promise.resolve(_db);
-  if (_idbFailed) return Promise.reject('idb unavailable');
-  return new Promise((resolve, reject) => {
-    try {
-      const req = indexedDB.open('toriNikki', 1);
-      req.onupgradeneeded = e => {
-        const d = e.target.result;
-        if (!d.objectStoreNames.contains('birds')) d.createObjectStore('birds');
-      };
-      req.onsuccess = e => { _db = e.target.result; resolve(_db); };
-      req.onerror = () => { _idbFailed = true; reject('idb error'); };
-    } catch(e) { _idbFailed = true; reject(e); }
-  });
-}
-
+// ===== Storage: localStorage + 自動容量管理 =====
 async function getRecords(birdIdx) {
   const idx = birdIdx !== undefined ? birdIdx : activeBird;
-  try {
-    const d = await openDB();
-    return new Promise(resolve => {
-      const req = d.transaction('birds','readonly').objectStore('birds').get('records_' + idx);
-      req.onsuccess = () => resolve(req.result || {});
-      req.onerror = () => resolve({});
-    });
-  } catch(e) {
-    // localStorageフォールバック
-    try { return JSON.parse(localStorage.getItem('tori_records_' + idx) || '{}'); } catch(e2) { return {}; }
-  }
+  try { return JSON.parse(localStorage.getItem('tori_records_' + idx) || '{}'); } catch(e) { return {}; }
 }
 
 async function saveRecords(records, birdIdx) {
   const idx = birdIdx !== undefined ? birdIdx : activeBird;
+  // 1回目：そのまま保存
   try {
-    const d = await openDB();
-    return new Promise(resolve => {
-      const req = d.transaction('birds','readwrite').objectStore('birds').put(records, 'records_' + idx);
-      req.onsuccess = () => resolve(true);
-      req.onerror = () => resolve(false);
-    });
-  } catch(e) {
-    // localStorageフォールバック
+    localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
+    return true;
+  } catch(e) {}
+  // 失敗→古い写真を削除して容量確保してから再試行
+  freeOldPhotos();
+  try {
+    localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
+    return true;
+  } catch(e) { return false; }
+}
+
+function freeOldPhotos() {
+  // 両方の文鳥の古い写真を削除（直近7日分は残す）
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  for (let i = 0; i <= 1; i++) {
     try {
-      localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
-      return true;
-    } catch(e2) { return false; }
+      const rec = JSON.parse(localStorage.getItem('tori_records_' + i) || '{}');
+      let changed = false;
+      Object.keys(rec).forEach(k => {
+        if (rec[k] && rec[k].todayPhoto) {
+          const d = new Date(k.replace(/-/g, '/'));
+          if (d < cutoff) { delete rec[k].todayPhoto; changed = true; }
+        }
+      });
+      if (changed) localStorage.setItem('tori_records_' + i, JSON.stringify(rec));
+    } catch(e) {}
   }
 }
 
 // ===== Init =====
 document.addEventListener('DOMContentLoaded', async () => {
-  // localStorageからIndexedDBへ移行（初回のみ）
-  if (!localStorage.getItem('tori_idb_migrated')) {
-    for (let i = 0; i <= 1; i++) {
-      const lsKey = 'tori_records_' + i;
-      const lsData = localStorage.getItem(lsKey);
-      if (lsData) {
-        try { await saveRecords(JSON.parse(lsData), i); } catch(e) {}
-      }
-    }
-    // 旧形式のデータも移行
-    const oldData = localStorage.getItem('tori_records');
-    if (oldData) {
-      try {
-        const existing = await getRecords(0);
-        if (Object.keys(existing).length === 0) await saveRecords(JSON.parse(oldData), 0);
-      } catch(e) {}
-    }
-    localStorage.setItem('tori_idb_migrated', '1');
+  // 旧形式データの移行（tori_records → tori_records_0）
+  if (localStorage.getItem('tori_records') && !localStorage.getItem('tori_records_0')) {
+    localStorage.setItem('tori_records_0', localStorage.getItem('tori_records'));
   }
   selectedDate = todayKey();
   updateDateHeader();
@@ -559,13 +531,19 @@ async function checkTodaySaved() {
 function handleShotPhoto(input) {
   const file = input.files[0];
   if (!file) return;
-  fileToDataUrl(file).then(compressImage).then(dataUrl => {
-    state.todayPhoto = dataUrl;
-    const img = document.getElementById('shot-preview');
-    img.src = dataUrl; img.style.display = 'block';
-    document.getElementById('shot-btn').classList.add('has-photo');
-    document.getElementById('shot-inner').querySelector('span').textContent = '撮り直す';
-    updateSaveBtn();
+  fileToDataUrl(file).then(dataUrl => {
+    // プレビュー用：大きいサイズで表示（保存はしない）
+    compressImage(dataUrl, 1024, 0.75).then(previewUrl => {
+      const img = document.getElementById('shot-preview');
+      img.src = previewUrl; img.style.display = 'block';
+      document.getElementById('shot-btn').classList.add('has-photo');
+      document.getElementById('shot-inner').querySelector('span').textContent = '撮り直す';
+    });
+    // 保存用：超小さいサムネイル（約10〜15KB）で長期保存
+    compressImage(dataUrl, 300, 0.65).then(thumbUrl => {
+      state.todayPhoto = thumbUrl;
+      updateSaveBtn();
+    });
   });
 }
 
@@ -577,24 +555,25 @@ function fileToDataUrl(file) {
   });
 }
 
-// Compress image to max 1024px JPEG to fit in localStorage (5MB limit)
-function compressImage(dataUrl) {
+// Compress image to specified max size and quality
+function compressImage(dataUrl, maxSize, quality) {
+  const max = maxSize || 1024;
+  const q = quality || 0.75;
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
-        const max = 1024;
         const scale = Math.min(1, max / Math.max(img.width, img.height));
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
+        resolve(canvas.toDataURL('image/jpeg', q));
       } catch(e) {
-        resolve(dataUrl); // 圧縮失敗時は元の画像を使用
+        resolve(dataUrl);
       }
     };
-    img.onerror = () => resolve(dataUrl); // 読み込み失敗時は元の画像を使用
+    img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
   });
 }
