@@ -365,18 +365,38 @@ async function saveRecords(records, birdIdx) {
     localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
     return true;
   } catch(e) {}
-  // 失敗→古い写真を削除して容量確保してから再試行
-  freeOldPhotos();
+  // 失敗→recordsオブジェクト内の昨日以前の写真を削除して再試行
+  stripOldPhotos(records, 1);
+  cleanOtherBirdPhotos(idx, 1);
+  try {
+    localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
+    return true;
+  } catch(e) {}
+  // まだ失敗→全写真を削除して再試行
+  stripOldPhotos(records, 0);
+  cleanOtherBirdPhotos(idx, 0);
   try {
     localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
     return true;
   } catch(e) { return false; }
 }
 
-function freeOldPhotos() {
-  // 両方の文鳥の古い写真を削除（直近7日分は残す）
+// recordsオブジェクト（メモリ上）から古い写真を削除
+function stripOldPhotos(records, keepDays) {
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 7);
+  cutoff.setDate(cutoff.getDate() - (keepDays || 0));
+  Object.keys(records).forEach(k => {
+    if (records[k] && records[k].todayPhoto) {
+      const d = new Date(k.replace(/-/g, '/'));
+      if (keepDays === 0 || d < cutoff) { records[k].todayPhoto = null; }
+    }
+  });
+}
+
+// 相手方の文鳥のlocalStorageからも古い写真を削除
+function cleanOtherBirdPhotos(currentIdx, keepDays) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - (keepDays || 0));
   for (let i = 0; i <= 1; i++) {
     try {
       const rec = JSON.parse(localStorage.getItem('tori_records_' + i) || '{}');
@@ -384,7 +404,7 @@ function freeOldPhotos() {
       Object.keys(rec).forEach(k => {
         if (rec[k] && rec[k].todayPhoto) {
           const d = new Date(k.replace(/-/g, '/'));
-          if (d < cutoff) { delete rec[k].todayPhoto; changed = true; }
+          if (keepDays === 0 || d < cutoff) { delete rec[k].todayPhoto; changed = true; }
         }
       });
       if (changed) localStorage.setItem('tori_records_' + i, JSON.stringify(rec));
@@ -651,8 +671,11 @@ async function saveRecord() {
     if (await saveRecords(records)) {
       showToast('保存しました！');
     } else {
-      showToast('保存できませんでした');
-      return;
+      alert('保存できませんでした。写真なしで保存します。');
+      records[key].todayPhoto = null;
+      state.todayPhoto = null;
+      await saveRecords(records);
+      showToast('写真なしで保存しました');
     }
 
     await checkTodaySaved();
