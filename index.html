@@ -352,30 +352,68 @@ function renameBird(idx) {
   }
 }
 
-// ===== Storage (per bird) =====
-function getRecords(birdIdx) {
-  const idx = birdIdx !== undefined ? birdIdx : activeBird;
-  try { return JSON.parse(localStorage.getItem('tori_records_' + idx) || '{}'); } catch { return {}; }
+// ===== Storage: IndexedDB (容量無制限) =====
+let _db = null;
+function openDB() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('toriNikki', 1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('birds')) d.createObjectStore('birds');
+    };
+    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+    req.onerror = () => reject();
+  });
 }
-function saveRecords(records, birdIdx) {
+async function getRecords(birdIdx) {
   const idx = birdIdx !== undefined ? birdIdx : activeBird;
   try {
-    localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
-  } catch(e) {
-    showToast('保存できませんでした。古い記録を削除してください');
-  }
+    const d = await openDB();
+    return new Promise(resolve => {
+      const req = d.transaction('birds','readonly').objectStore('birds').get('records_' + idx);
+      req.onsuccess = () => resolve(req.result || {});
+      req.onerror = () => resolve({});
+    });
+  } catch { return {}; }
+}
+async function saveRecords(records, birdIdx) {
+  const idx = birdIdx !== undefined ? birdIdx : activeBird;
+  try {
+    const d = await openDB();
+    return new Promise(resolve => {
+      const req = d.transaction('birds','readwrite').objectStore('birds').put(records, 'records_' + idx);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => resolve(false);
+    });
+  } catch { return false; }
 }
 
 // ===== Init =====
-document.addEventListener('DOMContentLoaded', () => {
-  // Migrate old data → bird 0
-  if (localStorage.getItem('tori_records') && !localStorage.getItem('tori_records_0')) {
-    localStorage.setItem('tori_records_0', localStorage.getItem('tori_records'));
+document.addEventListener('DOMContentLoaded', async () => {
+  // localStorageからIndexedDBへ移行（初回のみ）
+  if (!localStorage.getItem('tori_idb_migrated')) {
+    for (let i = 0; i <= 1; i++) {
+      const lsKey = 'tori_records_' + i;
+      const lsData = localStorage.getItem(lsKey);
+      if (lsData) {
+        try { await saveRecords(JSON.parse(lsData), i); } catch(e) {}
+      }
+    }
+    // 旧形式のデータも移行
+    const oldData = localStorage.getItem('tori_records');
+    if (oldData) {
+      try {
+        const existing = await getRecords(0);
+        if (Object.keys(existing).length === 0) await saveRecords(JSON.parse(oldData), 0);
+      } catch(e) {}
+    }
+    localStorage.setItem('tori_idb_migrated', '1');
   }
   selectedDate = todayKey();
   updateDateHeader();
   updateBirdNameUI();
-  checkTodaySaved();
+  await checkTodaySaved();
 });
 
 function todayKey() {
@@ -396,17 +434,16 @@ function updateDateHeader() {
   document.getElementById('save-btn').textContent = isToday ? '記録を保存する' : 'この日の記録を保存する';
 }
 
-function changeDay(delta) {
+async function changeDay(delta) {
   const [y, m, d] = selectedDate.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   date.setDate(date.getDate() + delta);
   const newKey = date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
-  // Don't go into the future
   if (newKey > todayKey()) return;
   selectedDate = newKey;
   updateDateHeader();
   resetForm();
-  checkTodaySaved();
+  await checkTodaySaved();
 }
 
 function resetForm() {
@@ -427,45 +464,45 @@ function resetForm() {
 }
 
 // ===== Bird switching =====
-function switchBird(idx) {
+async function switchBird(idx) {
   activeBird = idx;
   [0, 1].forEach(i => document.getElementById('tab-bird-' + i).classList.toggle('active', i === idx));
   resetForm();
-  checkTodaySaved();
+  await checkTodaySaved();
 }
 
-function switchAlbumBird(idx) {
+async function switchAlbumBird(idx) {
   albumBird = idx;
   [0, 1].forEach(i => document.getElementById('album-tab-' + i).classList.toggle('active', i === idx));
-  renderAlbum();
+  await renderAlbum();
 }
 
-function switchGraphBird(idx) {
+async function switchGraphBird(idx) {
   graphBird = idx;
   [0, 1].forEach(i => document.getElementById('graph-tab-' + i).classList.toggle('active', i === idx));
-  renderGraphs();
+  await renderGraphs();
 }
 
-function switchRecBird(idx) {
+async function switchRecBird(idx) {
   recBird = idx;
   [0, 1].forEach(i => document.getElementById('rec-tab-' + i).classList.toggle('active', i === idx));
-  renderRecords();
+  await renderRecords();
 }
 
 // ===== Page switching =====
-function switchPage(page, btn) {
+async function switchPage(page, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   btn.classList.add('active');
-  if (page === 'album') renderAlbum();
-  if (page === 'graph') renderGraphs();
-  if (page === 'records') renderRecords();
+  if (page === 'album') await renderAlbum();
+  if (page === 'graph') await renderGraphs();
+  if (page === 'records') await renderRecords();
 }
 
 // ===== Today summary =====
-function checkTodaySaved() {
-  const r = getRecords()[selectedDate];
+async function checkTodaySaved() {
+  const r = (await getRecords())[selectedDate];
   const el = document.getElementById('today-saved');
   if (r) {
     el.style.display = 'block';
@@ -594,7 +631,7 @@ function updateSaveBtn() {
 }
 
 // ===== Save =====
-function saveRecord() {
+async function saveRecord() {
   const key = selectedDate;
   // 保険：state.todayPhotoがnullでもプレビューに写真が表示されている場合はそちらを使う
   if (!state.todayPhoto) {
@@ -614,17 +651,42 @@ function saveRecord() {
     comment: state.comment || '',
     savedAt: new Date().toISOString(),
   };
-  saveRecords(records);
-  showToast('保存しました！');
-  checkTodaySaved();
+
+  if (await saveRecords(records)) {
+    showToast('保存しました！');
+  } else {
+    showToast('保存できませんでした');
+    return;
+  }
+
+  await checkTodaySaved();
   const saved = records[key];
   state = { weight: saved.weight, foodBefore: saved.foodBefore, foodAfter: saved.foodAfter, todayPhoto: saved.todayPhoto, comment: saved.comment || '' };
   updateSaveBtn();
 }
 
+async function recompressSmall(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const max = 512;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.5));
+      } catch(e) { resolve(dataUrl); }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 // ===== Album =====
-function renderAlbum() {
-  const records = getRecords(albumBird);
+async function renderAlbum() {
+  const records = await getRecords(albumBird);
   const keys = Object.keys(records).filter(k => records[k].todayPhoto).sort().reverse();
   const container = document.getElementById('album-content');
   if (keys.length === 0) {
@@ -653,8 +715,8 @@ function renderAlbum() {
   container.innerHTML = html;
 }
 
-function openModal(key) {
-  const r = getRecords(albumBird)[key];
+async function openModal(key) {
+  const r = (await getRecords(albumBird))[key];
   if (!r) return;
   document.getElementById('modal-img').src = r.todayPhoto || '';
   const d = key.split('-');
@@ -669,15 +731,15 @@ function openModal(key) {
 function closeModal() { document.getElementById('photo-modal').classList.remove('open'); }
 
 // ===== Graph =====
-function setRange(days, btn) {
+async function setRange(days, btn) {
   chartRange = days;
   document.querySelectorAll('.range-btns button').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  renderGraphs();
+  await renderGraphs();
 }
 
-function renderGraphs() {
-  const records = getRecords(graphBird);
+async function renderGraphs() {
+  const records = await getRecords(graphBird);
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - chartRange + 1);
   const keys = Object.keys(records).sort().filter(k => new Date(k) >= cutoff);
   const labels = keys.map(k => { const d=k.split('-'); return parseInt(d[1])+'/'+parseInt(d[2]); });
@@ -697,8 +759,8 @@ function makeChart(id, labels, data, color) {
 }
 
 // ===== Records =====
-function renderRecords() {
-  const records = getRecords(recBird);
+async function renderRecords() {
+  const records = await getRecords(recBird);
   const keys = Object.keys(records).sort().reverse();
   const container = document.getElementById('records-list');
   if (keys.length === 0) { container.innerHTML = '<div class="no-data">まだ記録がありません</div>'; return; }
@@ -720,13 +782,13 @@ function renderRecords() {
   container.innerHTML = html;
 }
 
-function deleteRecord(key) {
+async function deleteRecord(key) {
   if (!confirm(key + ' の記録を削除しますか？')) return;
-  const records = getRecords(recBird);
+  const records = await getRecords(recBird);
   delete records[key];
-  saveRecords(records, recBird);
-  renderRecords();
-  if (recBird === activeBird) checkTodaySaved();
+  await saveRecords(records, recBird);
+  await renderRecords();
+  if (recBird === activeBird) await checkTodaySaved();
   showToast('削除しました');
 }
 
