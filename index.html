@@ -640,7 +640,7 @@ async function saveRecord() {
       state.todayPhoto = sp.src;
     }
   }
-  const records = getRecords();
+  const records = await getRecords();
   records[key] = {
     date: key,
     weight: state.weight,
