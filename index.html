@@ -352,20 +352,26 @@ function renameBird(idx) {
   }
 }
 
-// ===== Storage: IndexedDB (容量無制限) =====
+// ===== Storage: IndexedDB優先、失敗時はlocalStorageにフォールバック =====
 let _db = null;
+let _idbFailed = false;
+
 function openDB() {
   if (_db) return Promise.resolve(_db);
+  if (_idbFailed) return Promise.reject('idb unavailable');
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('toriNikki', 1);
-    req.onupgradeneeded = e => {
-      const d = e.target.result;
-      if (!d.objectStoreNames.contains('birds')) d.createObjectStore('birds');
-    };
-    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
-    req.onerror = () => reject();
+    try {
+      const req = indexedDB.open('toriNikki', 1);
+      req.onupgradeneeded = e => {
+        const d = e.target.result;
+        if (!d.objectStoreNames.contains('birds')) d.createObjectStore('birds');
+      };
+      req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+      req.onerror = () => { _idbFailed = true; reject('idb error'); };
+    } catch(e) { _idbFailed = true; reject(e); }
   });
 }
+
 async function getRecords(birdIdx) {
   const idx = birdIdx !== undefined ? birdIdx : activeBird;
   try {
@@ -375,8 +381,12 @@ async function getRecords(birdIdx) {
       req.onsuccess = () => resolve(req.result || {});
       req.onerror = () => resolve({});
     });
-  } catch { return {}; }
+  } catch {
+    // localStorageフォールバック
+    try { return JSON.parse(localStorage.getItem('tori_records_' + idx) || '{}'); } catch { return {}; }
+  }
 }
+
 async function saveRecords(records, birdIdx) {
   const idx = birdIdx !== undefined ? birdIdx : activeBird;
   try {
@@ -386,7 +396,13 @@ async function saveRecords(records, birdIdx) {
       req.onsuccess = () => resolve(true);
       req.onerror = () => resolve(false);
     });
-  } catch { return false; }
+  } catch {
+    // localStorageフォールバック
+    try {
+      localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
+      return true;
+    } catch { return false; }
+  }
 }
 
 // ===== Init =====
@@ -632,37 +648,41 @@ function updateSaveBtn() {
 
 // ===== Save =====
 async function saveRecord() {
-  const key = selectedDate;
-  // 保険：state.todayPhotoがnullでもプレビューに写真が表示されている場合はそちらを使う
-  if (!state.todayPhoto) {
-    const sp = document.getElementById('shot-preview');
-    if (sp.style.display !== 'none' && sp.src && sp.src.startsWith('data:')) {
-      state.todayPhoto = sp.src;
+  try {
+    const key = selectedDate;
+    // 保険：state.todayPhotoがnullでもプレビューに写真があれば使う
+    if (!state.todayPhoto) {
+      const sp = document.getElementById('shot-preview');
+      if (sp.style.display !== 'none' && sp.src && sp.src.startsWith('data:')) {
+        state.todayPhoto = sp.src;
+      }
     }
-  }
-  const records = await getRecords();
-  records[key] = {
-    date: key,
-    weight: state.weight,
-    foodBefore: state.foodBefore,
-    foodAfter: state.foodAfter,
-    foodEaten: getEaten(),
-    todayPhoto: state.todayPhoto,
-    comment: state.comment || '',
-    savedAt: new Date().toISOString(),
-  };
+    const records = await getRecords();
+    records[key] = {
+      date: key,
+      weight: state.weight,
+      foodBefore: state.foodBefore,
+      foodAfter: state.foodAfter,
+      foodEaten: getEaten(),
+      todayPhoto: state.todayPhoto,
+      comment: state.comment || '',
+      savedAt: new Date().toISOString(),
+    };
 
-  if (await saveRecords(records)) {
-    showToast('保存しました！');
-  } else {
-    showToast('保存できませんでした');
-    return;
-  }
+    if (await saveRecords(records)) {
+      showToast('保存しました！');
+    } else {
+      showToast('保存できませんでした');
+      return;
+    }
 
-  await checkTodaySaved();
-  const saved = records[key];
-  state = { weight: saved.weight, foodBefore: saved.foodBefore, foodAfter: saved.foodAfter, todayPhoto: saved.todayPhoto, comment: saved.comment || '' };
-  updateSaveBtn();
+    await checkTodaySaved();
+    const saved = records[key];
+    state = { weight: saved.weight, foodBefore: saved.foodBefore, foodAfter: saved.foodAfter, todayPhoto: saved.todayPhoto, comment: saved.comment || '' };
+    updateSaveBtn();
+  } catch(e) {
+    showToast('エラーが発生しました: ' + (e && e.message ? e.message : String(e)));
+  }
 }
 
 async function recompressSmall(dataUrl) {
