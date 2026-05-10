@@ -291,6 +291,11 @@
       <button class="bird-tab active" id="rec-tab-0" onclick="switchRecBird(0)"><span id="rec-name-0">文鳥1</span></button>
       <button class="bird-tab" id="rec-tab-1" onclick="switchRecBird(1)"><span id="rec-name-1">文鳥2</span></button>
     </div>
+    <div class="month-nav-graph" id="rec-month-nav" style="display:flex">
+      <button onclick="changeRecMonth(-1)">←</button>
+      <span id="rec-month-label"></span>
+      <button onclick="changeRecMonth(1)" id="rec-month-next">→</button>
+    </div>
     <div id="records-list"></div>
   </div>
 </main>
@@ -334,6 +339,7 @@ let recBird = 0;
 let state = { weight: null, foodBefore: null, foodAfter: null, todayPhoto: null, comment: '' };
 let chartRange = 7;
 let graphViewMonth = null; // null=期間モード, 'YYYY-MM'=月別モード
+let recViewMonth = null;  // 記録一覧の表示月 'YYYY-MM'
 let weightChart = null, foodChart = null;
 let selectedDate = null; // set in DOMContentLoaded
 
@@ -504,6 +510,7 @@ async function switchGraphBird(idx) {
 
 async function switchRecBird(idx) {
   recBird = idx;
+  recViewMonth = null; // 文鳥切り替えで最新月に戻す
   [0, 1].forEach(i => document.getElementById('rec-tab-' + i).classList.toggle('active', i === idx));
   await renderRecords();
 }
@@ -822,11 +829,44 @@ function makeChart(id, labels, data, color) {
 }
 
 // ===== Records =====
+function nowYM() {
+  const n = new Date();
+  return n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0');
+}
+
+function changeRecMonth(delta) {
+  const [y, m] = recViewMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  const next = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  if (next > nowYM()) return;
+  recViewMonth = next;
+  renderRecords();
+}
+
 async function renderRecords() {
   const records = await getRecords(recBird);
-  const keys = Object.keys(records).sort().reverse();
+  const allKeys = Object.keys(records).sort();
+
+  // 初回または月未設定のとき：最新記録がある月を初期表示
+  if (!recViewMonth) {
+    recViewMonth = allKeys.length > 0
+      ? allKeys[allKeys.length - 1].slice(0, 7)
+      : nowYM();
+  }
+
+  // 月ナビ表示更新
+  const [y, m] = recViewMonth.split('-').map(Number);
+  document.getElementById('rec-month-label').textContent = y + '年' + m + '月';
+  document.getElementById('rec-month-next').disabled = recViewMonth >= nowYM();
+
+  // 表示月のキーだけ絞り込む
+  const keys = allKeys.filter(k => k.startsWith(recViewMonth)).reverse();
+
   const container = document.getElementById('records-list');
-  if (keys.length === 0) { container.innerHTML = '<div class="no-data">まだ記録がありません</div>'; return; }
+  if (keys.length === 0) {
+    container.innerHTML = '<div class="no-data">この月の記録はありません</div>';
+    return;
+  }
   let html = '';
   keys.forEach(k => {
     const r = records[k];
