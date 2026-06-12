@@ -101,6 +101,23 @@
   .toast.success { background: #4caf7d; }
   .toast.error { background: #e57373; }
 
+  /* 前回比 */
+  .weight-diff { font-size: 12px; margin-top: 4px; min-height: 18px; color: var(--sub); }
+  .weight-diff.up { color: #e57373; }
+  .weight-diff.down { color: #4caf7d; }
+
+  /* 定型文ボタン */
+  .quick-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .quick-btn { padding: 5px 12px; border: 1px solid var(--border); background: var(--bg); border-radius: 20px; font-size: 12px; cursor: pointer; color: var(--text); }
+
+  /* 記録チェックリスト */
+  .rec-checklist { display: flex; gap: 14px; margin: 8px 0 14px; font-size: 13px; color: var(--sub); }
+  .rec-checklist .chk { display: flex; align-items: center; gap: 4px; transition: color .2s; }
+  .rec-checklist .chk.done { color: #4caf7d; font-weight: 600; }
+
+  /* CSV書き出しボタン */
+  .csv-btn { width: 100%; padding: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; font-size: 14px; cursor: pointer; color: var(--sub); margin-bottom: 12px; }
+
   /* Album */
   .month-group { margin-bottom: 24px; }
   .month-label { font-size: 14px; font-weight: 600; color: var(--sub); margin-bottom: 10px; }
@@ -212,6 +229,7 @@
         <input class="big-input" type="number" step="0.1" inputmode="decimal" placeholder="—" id="weight-val" oninput="onNumInput('weight', this.value)">
         <span class="big-unit">g</span>
       </div>
+      <div class="weight-diff" id="weight-diff"></div>
     </div>
 
     <!-- Food -->
@@ -242,9 +260,21 @@
     <!-- Comment -->
     <div class="card">
       <div class="section-title" style="margin-top:0;">一言メモ</div>
+      <div class="quick-btns">
+        <button class="quick-btn" onclick="addQuickComment('元気！')">元気！</button>
+        <button class="quick-btn" onclick="addQuickComment('食欲旺盛')">食欲旺盛</button>
+        <button class="quick-btn" onclick="addQuickComment('少食気味')">少食気味</button>
+        <button class="quick-btn" onclick="addQuickComment('換羽中')">換羽中</button>
+        <button class="quick-btn" onclick="addQuickComment('通院')">通院</button>
+      </div>
       <textarea class="comment-input" id="comment-val" rows="3" placeholder="今日の様子、気づいたことなど…" oninput="onCommentInput(this.value)"></textarea>
     </div>
 
+    <div class="rec-checklist">
+      <div class="chk" id="chk-weight">○ 体重</div>
+      <div class="chk" id="chk-food">○ 食事</div>
+      <div class="chk" id="chk-photo">○ 写真</div>
+    </div>
     <button class="save-btn" id="save-btn" onclick="saveRecord()" disabled>記録を保存する</button>
   </div>
 
@@ -254,6 +284,11 @@
     <div class="bird-tabs">
       <button class="bird-tab active" id="album-tab-0" onclick="switchAlbumBird(0)"><span id="album-name-0">文鳥1</span></button>
       <button class="bird-tab" id="album-tab-1" onclick="switchAlbumBird(1)"><span id="album-name-1">文鳥2</span></button>
+    </div>
+    <div class="month-nav-graph" id="album-month-nav" style="display:flex">
+      <button onclick="changeAlbumMonth(-1)">←</button>
+      <span id="album-month-label"></span>
+      <button onclick="changeAlbumMonth(1)" id="album-month-next">→</button>
     </div>
     <div id="album-content"></div>
   </div>
@@ -298,6 +333,7 @@
       <span id="rec-month-label"></span>
       <button onclick="changeRecMonth(1)" id="rec-month-next">→</button>
     </div>
+    <button class="csv-btn" onclick="exportCSV()">この月のデータをCSVで書き出す</button>
     <div id="records-list"></div>
   </div>
 </main>
@@ -342,6 +378,7 @@ let state = { weight: null, foodBefore: null, foodAfter: null, todayPhoto: null,
 let chartRange = 7;
 let graphViewMonth = null; // null=期間モード, 'YYYY-MM'=月別モード
 let recViewMonth = null;  // 記録一覧の表示月 'YYYY-MM'
+let albumViewMonth = null; // アルバムの表示月 'YYYY-MM'
 let weightChart = null, foodChart = null;
 let selectedDate = null; // set in DOMContentLoaded
 
@@ -500,6 +537,7 @@ async function switchBird(idx) {
 
 async function switchAlbumBird(idx) {
   albumBird = idx;
+  albumViewMonth = null;
   [0, 1].forEach(i => document.getElementById('album-tab-' + i).classList.toggle('active', i === idx));
   await renderAlbum();
 }
@@ -529,6 +567,26 @@ async function switchPage(page, btn) {
 }
 
 // ===== Today summary =====
+async function showWeightDiff(currentWeight) {
+  const el = document.getElementById('weight-diff');
+  if (!el) return;
+  if (currentWeight == null) { el.textContent = ''; el.className = 'weight-diff'; return; }
+  const records = await getRecords();
+  const prevKey = Object.keys(records).sort().filter(k => k < selectedDate).pop();
+  if (!prevKey || records[prevKey].weight == null) { el.textContent = ''; return; }
+  const diff = Math.round((currentWeight - records[prevKey].weight) * 10) / 10;
+  if (diff > 0) {
+    el.textContent = '前回比 +' + diff + 'g ↑';
+    el.className = 'weight-diff up';
+  } else if (diff < 0) {
+    el.textContent = '前回比 ' + diff + 'g ↓';
+    el.className = 'weight-diff down';
+  } else {
+    el.textContent = '前回比 ±0g';
+    el.className = 'weight-diff';
+  }
+}
+
 async function checkTodaySaved() {
   const r = (await getRecords())[selectedDate];
   const el = document.getElementById('today-saved');
@@ -562,8 +620,10 @@ async function checkTodaySaved() {
     }
     updateFoodCalc();
     updateSaveBtn();
+    showWeightDiff(r.weight ?? null);
   } else {
     el.style.display = 'none';
+    showWeightDiff(null);
   }
 }
 
@@ -628,7 +688,7 @@ function onCommentInput(val) {
 function onNumInput(type, val) {
   const num = parseFloat(val);
   const v = isNaN(num) ? null : num;
-  if (type === 'weight') state.weight = v;
+  if (type === 'weight') { state.weight = v; showWeightDiff(v); }
   else if (type === 'food-before') state.foodBefore = v;
   else state.foodAfter = v;
   updateFoodCalc();
@@ -663,6 +723,24 @@ function updateSaveBtn() {
   const hasComment = document.getElementById('comment-val').value.trim() !== '';
   document.getElementById('save-btn').disabled =
     !(hasWeight || hasFoodB || hasFoodA || hasPhoto || hasComment);
+  // チェックリスト更新
+  const setChk = (id, done) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'chk' + (done ? ' done' : '');
+    el.textContent = (done ? '✓ ' : '○ ') + (id === 'chk-weight' ? '体重' : id === 'chk-food' ? '食事' : '写真');
+  };
+  setChk('chk-weight', hasWeight);
+  setChk('chk-food', hasFoodB || hasFoodA);
+  setChk('chk-photo', hasPhoto);
+}
+
+// ===== 定型文コメント =====
+function addQuickComment(text) {
+  const el = document.getElementById('comment-val');
+  el.value = el.value ? el.value + '　' + text : text;
+  state.comment = el.value;
+  updateSaveBtn();
 }
 
 // ===== Save =====
@@ -727,33 +805,50 @@ async function recompressSmall(dataUrl) {
 }
 
 // ===== Album =====
+function changeAlbumMonth(delta) {
+  const [y, m] = albumViewMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  const next = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  if (next > nowYM()) return;
+  albumViewMonth = next;
+  renderAlbum();
+}
+
 async function renderAlbum() {
   const records = await getRecords(albumBird);
-  const keys = Object.keys(records).filter(k => records[k].todayPhoto).sort().reverse();
+  const allPhotoKeys = Object.keys(records).filter(k => records[k].todayPhoto).sort();
+
+  // 初回：最新写真がある月を初期表示
+  if (!albumViewMonth) {
+    albumViewMonth = allPhotoKeys.length > 0
+      ? allPhotoKeys[allPhotoKeys.length - 1].slice(0, 7)
+      : nowYM();
+  }
+
+  // 月ナビ更新
+  const [y, m] = albumViewMonth.split('-').map(Number);
+  document.getElementById('album-month-label').textContent = y + '年' + m + '月';
+  document.getElementById('album-month-next').disabled = albumViewMonth >= nowYM();
+
+  const keys = allPhotoKeys.filter(k => k.startsWith(albumViewMonth)).reverse();
   const container = document.getElementById('album-content');
   if (keys.length === 0) {
     const name = getBirdNames()[albumBird];
     container.innerHTML =
       '<div class="album-empty">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>' +
-      '<div>まだ写真がありません</div>' +
-      '<div style="font-size:12px;margin-top:6px;">' + name + 'の「今日の一枚」を撮ってね</div></div>';
+      '<div>この月の写真はありません</div>' +
+      '<div style="font-size:12px;margin-top:6px;">← で前の月を見てみてね</div></div>';
     return;
   }
-  const months = {};
-  keys.forEach(k => { const m = k.slice(0,7); if (!months[m]) months[m]=[]; months[m].push(k); });
-  let html = '';
-  Object.keys(months).sort().reverse().forEach(m => {
-    const [y, mo] = m.split('-');
-    html += '<div class="month-group"><div class="month-label">' + y + '年' + parseInt(mo) + '月</div><div class="album-grid">';
-    months[m].forEach(k => {
-      const d = k.split('-');
-      html += '<div class="album-thumb" onclick="openModal(\'' + k + '\')">' +
-        '<img src="' + records[k].todayPhoto + '" loading="lazy">' +
-        '<div class="thumb-date">' + parseInt(d[1]) + '/' + parseInt(d[2]) + '</div></div>';
-    });
-    html += '</div></div>';
+  let html = '<div class="album-grid">';
+  keys.forEach(k => {
+    const d = k.split('-');
+    html += '<div class="album-thumb" onclick="openModal(\'' + k + '\')">' +
+      '<img src="' + records[k].todayPhoto + '" loading="lazy">' +
+      '<div class="thumb-date">' + parseInt(d[1]) + '/' + parseInt(d[2]) + '</div></div>';
   });
+  html += '</div>';
   container.innerHTML = html;
 }
 
@@ -885,6 +980,27 @@ async function renderRecords() {
       '<button class="ri-del" onclick="deleteRecord(\'' + k + '\')">&#x00D7;</button></div>';
   });
   container.innerHTML = html;
+}
+
+async function exportCSV() {
+  const records = await getRecords(recBird);
+  const keys = Object.keys(records).sort().filter(k => k.startsWith(recViewMonth || nowYM()));
+  if (keys.length === 0) { showToast('この月のデータがありません'); return; }
+  const bom = '﻿';
+  const header = '日付,体重(g),与えた量(g),残った量(g),食べた量(g),コメント\n';
+  const rows = keys.map(k => {
+    const r = records[k];
+    return [k, r.weight ?? '', r.foodBefore ?? '', r.foodAfter ?? '', r.foodEaten ?? '', '"' + (r.comment || '').replace(/"/g, '""') + '"'].join(',');
+  }).join('\n');
+  const blob = new Blob([bom + header + rows], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const name = getBirdNames()[recBird];
+  const [y, m] = (recViewMonth || nowYM()).split('-').map(Number);
+  a.href = url; a.download = name + '_' + y + '年' + m + '月.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSVを書き出しました', 'success');
 }
 
 async function deleteRecord(key) {
