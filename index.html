@@ -285,6 +285,11 @@
       <button class="bird-tab active" id="album-tab-0" onclick="switchAlbumBird(0)"><span id="album-name-0">文鳥1</span></button>
       <button class="bird-tab" id="album-tab-1" onclick="switchAlbumBird(1)"><span id="album-name-1">文鳥2</span></button>
     </div>
+    <div class="month-nav-graph" id="album-month-nav" style="display:flex">
+      <button onclick="changeAlbumMonth(-1)">←</button>
+      <span id="album-month-label"></span>
+      <button onclick="changeAlbumMonth(1)" id="album-month-next">→</button>
+    </div>
     <div id="album-content"></div>
   </div>
 
@@ -373,6 +378,7 @@ let state = { weight: null, foodBefore: null, foodAfter: null, todayPhoto: null,
 let chartRange = 7;
 let graphViewMonth = null; // null=期間モード, 'YYYY-MM'=月別モード
 let recViewMonth = null;  // 記録一覧の表示月 'YYYY-MM'
+let albumViewMonth = null; // アルバムの表示月 'YYYY-MM'
 let weightChart = null, foodChart = null;
 let selectedDate = null; // set in DOMContentLoaded
 
@@ -499,6 +505,7 @@ async function switchBird(idx) {
 
 async function switchAlbumBird(idx) {
   albumBird = idx;
+  albumViewMonth = null;
   [0, 1].forEach(i => document.getElementById('album-tab-' + i).classList.toggle('active', i === idx));
   await renderAlbum();
 }
@@ -767,11 +774,35 @@ async function recompressSmall(dataUrl) {
 }
 
 // ===== Album =====
+function changeAlbumMonth(delta) {
+  const [y, m] = albumViewMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  const next = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  if (next > nowYM()) return;
+  albumViewMonth = next;
+  renderAlbum();
+}
+
 async function renderAlbum() {
   const records = await getRecords(albumBird);
-  const keys = Object.keys(records).filter(k => records[k].todayPhoto).sort().reverse();
+  const allPhotoKeys = Object.keys(records).filter(k => records[k].todayPhoto).sort();
+
+  // 初回：写真がある最新月を初期表示
+  if (!albumViewMonth) {
+    albumViewMonth = allPhotoKeys.length > 0
+      ? allPhotoKeys[allPhotoKeys.length - 1].slice(0, 7)
+      : nowYM();
+  }
+
+  // 月ナビ表示更新（写真の有無に関係なく月をナビできる）
+  const [y, m] = albumViewMonth.split('-').map(Number);
+  document.getElementById('album-month-label').textContent = y + '年' + m + '月';
+  document.getElementById('album-month-next').disabled = albumViewMonth >= nowYM();
+
+  const keys = allPhotoKeys.filter(k => k.startsWith(albumViewMonth)).reverse();
   const container = document.getElementById('album-content');
-  if (keys.length === 0) {
+
+  if (allPhotoKeys.length === 0) {
     const name = getBirdNames()[albumBird];
     container.innerHTML =
       '<div class="album-empty">' +
@@ -780,20 +811,20 @@ async function renderAlbum() {
       '<div style="font-size:12px;margin-top:6px;">' + name + 'の「今日の一枚」を撮ってね</div></div>';
     return;
   }
-  const months = {};
-  keys.forEach(k => { const m = k.slice(0,7); if (!months[m]) months[m]=[]; months[m].push(k); });
-  let html = '';
-  Object.keys(months).sort().reverse().forEach(m => {
-    const [y, mo] = m.split('-');
-    html += '<div class="month-group"><div class="month-label">' + y + '年' + parseInt(mo) + '月</div><div class="album-grid">';
-    months[m].forEach(k => {
-      const d = k.split('-');
-      html += '<div class="album-thumb" onclick="openModal(\'' + k + '\')">' +
-        '<img src="' + records[k].todayPhoto + '" loading="lazy">' +
-        '<div class="thumb-date">' + parseInt(d[1]) + '/' + parseInt(d[2]) + '</div></div>';
-    });
-    html += '</div></div>';
+
+  if (keys.length === 0) {
+    container.innerHTML = '<div class="no-data">この月の写真はありません<br><span style="font-size:12px;">← で前の月を見てみてね</span></div>';
+    return;
+  }
+
+  let html = '<div class="album-grid">';
+  keys.forEach(k => {
+    const d = k.split('-');
+    html += '<div class="album-thumb" onclick="openModal(\'' + k + '\')">' +
+      '<img src="' + records[k].todayPhoto + '" loading="lazy">' +
+      '<div class="thumb-date">' + parseInt(d[1]) + '/' + parseInt(d[2]) + '</div></div>';
   });
+  html += '</div>';
   container.innerHTML = html;
 }
 
