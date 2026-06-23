@@ -408,58 +408,26 @@ async function getRecords(birdIdx) {
   try { return JSON.parse(localStorage.getItem('tori_records_' + idx) || '{}'); } catch(e) { return {}; }
 }
 
+// 'ok'=全部保存, 'no-photo'=写真なしで保存, false=完全失敗
 async function saveRecords(records, birdIdx) {
   const idx = birdIdx !== undefined ? birdIdx : activeBird;
   // 1回目：そのまま保存
   try {
     localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
-    return true;
+    return 'ok';
   } catch(e) {}
-  // 失敗→recordsオブジェクト内の昨日以前の写真を削除して再試行
-  stripOldPhotos(records, 1);
-  cleanOtherBirdPhotos(idx, 1);
-  try {
-    localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
-    return true;
-  } catch(e) {}
-  // まだ失敗→全写真を削除して再試行
-  stripOldPhotos(records, 0);
-  cleanOtherBirdPhotos(idx, 0);
-  try {
-    localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
-    return true;
-  } catch(e) { return false; }
-}
-
-// recordsオブジェクト（メモリ上）から古い写真を削除
-function stripOldPhotos(records, keepDays) {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - (keepDays || 0));
-  Object.keys(records).forEach(k => {
-    if (records[k] && records[k].todayPhoto) {
-      const d = new Date(k.replace(/-/g, '/'));
-      if (keepDays === 0 || d < cutoff) { records[k].todayPhoto = null; }
-    }
-  });
-}
-
-// 相手方の文鳥のlocalStorageからも古い写真を削除
-function cleanOtherBirdPhotos(currentIdx, keepDays) {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - (keepDays || 0));
-  for (let i = 0; i <= 1; i++) {
+  // 失敗→今保存しようとしているレコードの写真だけ外して再試行
+  // ※他の日の写真は絶対に削除しない
+  const sortedKeys = Object.keys(records).sort();
+  const latestKey = sortedKeys[sortedKeys.length - 1];
+  if (records[latestKey] && records[latestKey].todayPhoto) {
+    records[latestKey].todayPhoto = null;
     try {
-      const rec = JSON.parse(localStorage.getItem('tori_records_' + i) || '{}');
-      let changed = false;
-      Object.keys(rec).forEach(k => {
-        if (rec[k] && rec[k].todayPhoto) {
-          const d = new Date(k.replace(/-/g, '/'));
-          if (keepDays === 0 || d < cutoff) { delete rec[k].todayPhoto; changed = true; }
-        }
-      });
-      if (changed) localStorage.setItem('tori_records_' + i, JSON.stringify(rec));
+      localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
+      return 'no-photo';
     } catch(e) {}
   }
+  return false;
 }
 
 // ===== Init =====
@@ -759,14 +727,15 @@ async function saveRecord() {
       savedAt: new Date().toISOString(),
     };
 
-    if (await saveRecords(records)) {
+    const result = await saveRecords(records);
+    if (result === 'ok') {
       showToast('✓ 保存しました！', 'success');
-    } else {
-      alert('保存できませんでした。写真なしで保存します。');
-      records[key].todayPhoto = null;
+    } else if (result === 'no-photo') {
       state.todayPhoto = null;
-      await saveRecords(records);
-      showToast('写真なしで保存しました', 'success');
+      showToast('写真以外を保存しました（容量不足）', 'success');
+    } else {
+      showToast('保存できませんでした', 'error');
+      return;
     }
 
     await checkTodaySaved();
