@@ -334,6 +334,11 @@
       <button onclick="changeRecMonth(1)" id="rec-month-next">→</button>
     </div>
     <button class="csv-btn" onclick="exportCSV()">この月のデータをCSVで書き出す</button>
+    <button class="csv-btn" onclick="exportBackup()" style="color:var(--accent);border-color:var(--accent);">📦 全データをバックアップ（写真も含む）</button>
+    <label class="csv-btn" style="display:block;text-align:center;">
+      バックアップから復元（既存データはそのまま）
+      <input type="file" accept=".json,application/json" style="display:none;" onchange="importBackup(this)">
+    </label>
     <div id="records-list"></div>
   </div>
 </main>
@@ -415,19 +420,31 @@ async function getRecords(birdIdx) {
 }
 
 // 'ok'=全部保存, 'no-photo'=写真なしで保存, false=完全失敗
-async function saveRecords(records, birdIdx) {
+// keyBeingSaved: いま保存しようとしている日付。容量不足時にこの日の写真だけ外す
+async function saveRecords(records, birdIdx, keyBeingSaved) {
   const idx = birdIdx !== undefined ? birdIdx : activeBird;
+
+  // 安全ガード：既存データより大幅に減る保存はバグとみなして拒否（全消え防止）
+  // 正常な操作は「1件追加・1件上書き・1件削除」しかないため、
+  // 件数や写真数が2件以上減る保存はここでブロックされる
+  try {
+    const existing = JSON.parse(localStorage.getItem('tori_records_' + idx) || '{}');
+    const oldCount = Object.keys(existing).length;
+    const newCount = Object.keys(records).length;
+    if (newCount < oldCount - 1) return false;
+    const countPhotos = obj => Object.keys(obj).filter(k => obj[k] && obj[k].todayPhoto).length;
+    if (countPhotos(records) < countPhotos(existing) - 1) return false;
+  } catch(e) {}
+
   // 1回目：そのまま保存
   try {
     localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
     return 'ok';
   } catch(e) {}
-  // 失敗→今保存しようとしているレコードの写真だけ外して再試行
-  // ※他の日の写真は絶対に削除しない
-  const sortedKeys = Object.keys(records).sort();
-  const latestKey = sortedKeys[sortedKeys.length - 1];
-  if (records[latestKey] && records[latestKey].todayPhoto) {
-    records[latestKey].todayPhoto = null;
+  // 容量不足→いま保存しようとしている日の写真だけ外して再試行
+  // ※他の日の写真・データには絶対に触らない
+  if (keyBeingSaved && records[keyBeingSaved] && records[keyBeingSaved].todayPhoto) {
+    records[keyBeingSaved].todayPhoto = null;
     try {
       localStorage.setItem('tori_records_' + idx, JSON.stringify(records));
       return 'no-photo';
@@ -438,6 +455,12 @@ async function saveRecords(records, birdIdx) {
 
 // ===== Init =====
 document.addEventListener('DOMContentLoaded', async () => {
+  // ブラウザに「このサイトのデータを勝手に消さないで」と要求
+  try {
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(function(){});
+    }
+  } catch(e) {}
   // 旧形式データの移行（tori_records → tori_records_0）
   if (localStorage.getItem('tori_records') && !localStorage.getItem('tori_records_0')) {
     localStorage.setItem('tori_records_0', localStorage.getItem('tori_records'));
@@ -716,10 +739,11 @@ async function saveRecord() {
   try {
     const key = selectedDate;
     // 保険：state.todayPhotoがnullでもプレビューに写真があれば使う
+    // （必ず300pxサムネイルに圧縮してから保存する）
     if (!state.todayPhoto) {
       const sp = document.getElementById('shot-preview');
       if (sp.style.display !== 'none' && sp.src && sp.src.startsWith('data:')) {
-        state.todayPhoto = sp.src;
+        state.todayPhoto = await compressImage(sp.src, 300, 0.65);
       }
     }
     const records = await getRecords();
@@ -734,7 +758,7 @@ async function saveRecord() {
       savedAt: new Date().toISOString(),
     };
 
-    const result = await saveRecords(records);
+    const result = await saveRecords(records, undefined, key);
     if (result === 'ok') {
       showToast('✓ 保存しました！', 'success');
     } else if (result === 'no-photo') {
@@ -754,23 +778,69 @@ async function saveRecord() {
   }
 }
 
-async function recompressSmall(dataUrl) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        const max = 512;
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.5));
-      } catch(e) { resolve(dataUrl); }
+// ===== バックアップ＆復元 =====
+function exportBackup() {
+  try {
+    const data = {
+      app: 'tori-nikki',
+      exportedAt: new Date().toISOString(),
+      birdNames: getBirdNames(),
+      records: {}
     };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
-  });
+    for (let i = 0; i <= 1; i++) {
+      try { data.records[i] = JSON.parse(localStorage.getItem('tori_records_' + i) || '{}'); }
+      catch(e) { data.records[i] = {}; }
+    }
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'とりにっきバックアップ_' + todayKey() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('✓ バックアップを保存しました', 'success');
+  } catch(e) {
+    showToast('バックアップに失敗しました', 'error');
+  }
+}
+
+// 復元は「足りないものを追加するだけ」。既存のデータは絶対に上書き・削除しない
+function importBackup(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data || data.app !== 'tori-nikki' || !data.records) {
+        showToast('とりにっきのバックアップファイルではありません', 'error');
+        return;
+      }
+      let added = 0;
+      for (let i = 0; i <= 1; i++) {
+        let current;
+        try { current = JSON.parse(localStorage.getItem('tori_records_' + i) || '{}'); }
+        catch(e2) { current = {}; }
+        const backup = data.records[i] || {};
+        Object.keys(backup).forEach(k => {
+          if (!current[k]) { current[k] = backup[k]; added++; }
+          else if (!current[k].todayPhoto && backup[k] && backup[k].todayPhoto) {
+            current[k].todayPhoto = backup[k].todayPhoto; added++;
+          }
+        });
+        try { localStorage.setItem('tori_records_' + i, JSON.stringify(current)); }
+        catch(e3) { showToast('容量不足で一部復元できませんでした', 'error'); return; }
+      }
+      showToast(added > 0 ? '✓ ' + added + '件を復元しました' : '復元するデータはありませんでした', 'success');
+      checkTodaySaved();
+      renderRecords();
+    } catch(err) {
+      showToast('復元に失敗しました', 'error');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
 }
 
 // ===== Album =====
@@ -983,7 +1053,8 @@ async function deleteRecord(key) {
   if (!confirm(key + ' の記録を削除しますか？')) return;
   const records = await getRecords(recBird);
   delete records[key];
-  await saveRecords(records, recBird);
+  const result = await saveRecords(records, recBird);
+  if (!result) { showToast('削除できませんでした', 'error'); return; }
   await renderRecords();
   if (recBird === activeBird) await checkTodaySaved();
   showToast('削除しました');
